@@ -1,0 +1,92 @@
+import argparse
+from scapy.all import *
+import signal
+import sys
+from collections import Counter
+def printpattern(match):
+	if match:
+		print('[+] Found domain: ', match)
+		with open(output_file,'a') as f:
+			if output_file:
+				#f = open(output_file,'a')
+					f.write(match + '\n')
+	return
+
+def findmatches(pkt):
+#	global pattern
+	global output_file
+	raw = pkt.sprintf('%Raw.load%')
+	host = re.findall('Host:\s[-\w\.]+', raw)
+	if len(host) > 0:
+		match = re.sub('Host:\s','', host[0])
+		printpattern(match)
+		
+def cleanfile (file):
+	global sort
+	num_matches = 0
+	current_line = 0
+	with open(file, 'r+') as f:
+		index = 0
+		lines = f.readlines()
+		for sequence in lines:
+			if sequence.endswith('\n'):
+				sequence = re.sub('\n', '', sequence)
+				lines[index] = sequence
+			index += 1
+#        print(raw_lines.items())
+	enum_lines = dict(Counter(lines))
+	size = len(enum_lines)
+	line_num = 1
+#    print(enum_lines.items())
+	with open(sort, 'w') as f:
+		for key, value in enum_lines.items():
+			if line_num == size:
+				new_line = '[' + str(value) + ']' + ' ' + key
+				f.write(new_line)
+			else:
+				new_line = '[' + str(value) + ']' + ' ' + key + '\n'
+				f.write(new_line)
+			line_num += 1
+
+def signal_handler(signal, frame):
+	global output_file
+	global sort
+	print('[!] Keyboard interrupt detected.  Exiting...')
+	if sort:
+		cleanfile(output_file)
+		print("[!] Combined domains are here: '", sort,"'")
+	print("[!] Output File '", output_file, "' rearranged!")
+	sys.exit(0)
+    
+def main():
+	global output_file
+	global sort
+	parser = argparse.ArgumentParser(description='This tool is a simple network sniffer')
+	parser.add_argument('-i', '--interface', action='store', dest='interface', required='True'
+						, help='specify interface to listen on')
+	parser.add_argument('-o', '--output', action='store', dest='output' 
+						, help='specify an output file to log matches')
+	parser.add_argument('-s', '--sort', action='store', dest='sort', required='False' 
+						, help='use this flag to combine domains instances (recommended)')
+	args = vars(parser.parse_args())
+	int_face = args['interface']
+	output_file = args['output']
+	sort = args['sort']
+	if int_face == None:
+		parser.print_help()
+		exit(0)
+	else:
+		conf.iface = int_face
+		print('[*] Starting URL Sniffer.')
+	try:
+		print('[*] Beginning to sniff traffic on ' + int_face)
+		sniff(iface=int_face, count=0, filter="tcp", prn=findmatches, store=0)
+	except KeyboardInterrupt:
+		raise
+		print('[!] Keyboard interrupt signal detected.  Exiting...')
+		exit(0)
+
+if __name__ == '__main__':
+	signal.signal(signal.SIGINT, signal_handler)
+	output_file = ''
+	main()

@@ -1,0 +1,119 @@
+#!/bin/bash
+OPTIND=1
+function cleanup {
+echo
+echo "All URLs are in '$domainURLs'"
+echo "All unique (sub)domains are in '$domainsubdomains'"
+echo
+echo "have a nice day"
+exit
+}
+function gcurl {
+if [[ "$arg" != *-f* ]] || [[ "$arg" != *-d* ]] || [[ "$arg" != *-s* ]] || [[ "$arg" != *-p* ]] || [[ "$arg" != *-r* ]] || [[ "$arg" != *-u* ]] || [[ "$arg" != *-t* ]]; then
+                echo "Not enough flags/switches"
+                echo "Run the -h command to view the help file"
+                echo "Required flags: f,d,s,p,r,u,t"
+                exit
+else
+	count=$((count*10))
+	total_pages=$((total_pages*10))
+	while [ $count -lt $total_pages ]; do
+		if [[ $arg == *"-v"* ]]; then
+			echo "curl -A \"$useragent\" -skLm 10 \"https://www.google.com/search?tbs=li:1&q=allinurl:+-www+site:$domain&start=$count\""
+		fi
+		curl -A "Mozilla/5.0" -skLm 10 "https://www.google.com/search?tbs=li:1&q=allinurl:+-www+site:$domain&start=$count" | grep -oP '\/url\?q=.+?&amp' | sed 's|/url?q=||; s|&amp||' >> $domainURLs
+		sleep $delay
+		count=$((count+10))
+	done
+	sed -i '/webcache.googleusercontent.com/d' $domainURLs
+	cat "$domainURLs" | cut -d/ -f3 | sort | uniq > "$domainsubdomains"
+	echo "Clear screen and show domains? (y/n)"; read -n 1 answer
+	if [[ "$answer" == "y" ]]; then
+		clear
+		cat $domainsubdomains
+	fi
+	cleanup
+fi
+}
+function helpmenu {
+echo "********************GCURL********************
+Usage: gcurl [options...]
+Options:
+ -h     This help mess.
+ -f     Save-As file.
+ -d     Domain to crawl for unique subdomains.
+ -s     Starting search page (0 for 1st page).
+ -p     Amount of Google search result pages (10 results per page).
+ -r     Rolling file to store URLs.  Used to increase potential results over.
+        a series of gcurl executions or can be used to resume searching after.
+        previous results.  Must know final search page to be completely effective.
+  -u     Define a user agent string.  Maybe Mozilla/5.0? ('-' for Mozilla/4.0 default)
+ -t     Timeout (sec) for a delay between gcurl searches.
+ -v     Verbose mode.  Shows amount of arguments and what they were.  Not much
+        here.
+*********************************************
+"
+exit
+}
+function versioninfo {
+echo "
+*****************gcurl*****************
+gcurl is a tool that automates google searches and returns
+a list of all subdomains within the search.  It is used to
+determine which subdomains are readily visibly by search engines
+like google and can also be used to find public facing assets
+of a given domain (that google has indexed).
+
+gcurl v1.0.0 Copyright (C) 2015
+This program comes with ABSOLUTELY NO WARRANTY;
+This is free software, and you are welcome to redistribute it
+under certain conditions
+Last Updated: 11/20/2015
+"
+exit
+}
+arg="$*"
+NUMARGS="$#"
+if [[ $arg == *"-v"* ]]; then
+        echo "Number of arguments: $NUMARGS"
+        echo "Arguments entered: $arg"
+fi
+#if you cannot have multiple flags at once use below
+#if [[ "$*" == *"-r"* ]] && [[ "$*" == *"-t"* ]]; then
+#       echo "
+#       =======================================================================
+#       ERROR: You can only select -t OR -r NOT both, that wouldn't make sense.
+#       ======================================================================="
+#       echo "Try -h for the help menu"
+#       exit
+#fi
+#if you need to declare flag arguments, use below
+if [ $NUMARGS -eq 0 ]; then
+        helpmenu
+fi
+#use a colon after the flag that requires an argument
+while getopts "hf:r:d:p:s:u:t:v" option;
+do
+        case $option in
+        h|\?) helpmenu; exit;;
+		v)	if [[ $arg == "-v" ]]; then
+				versioninfo
+				exit
+			fi;;
+        f) domainsubdomains="$OPTARG";;
+        r) domainURLs="$OPTARG";;
+        d) domain="$OPTARG";;
+        p) total_pages="$OPTARG";;
+        d) domain="$OPTARG";;
+        p) total_pages="$OPTARG";;
+        s) count="$OPTARG";;
+        u)      if [[ "$OPTARG" = "-" ]]; then
+                useragent="Mozilla/4.0"
+                else
+                useragent="$OPTARG"
+                fi;;
+        t) delay="$OPTARG";;
+        esac
+done
+shift $((OPTIND-1))
+gcurl

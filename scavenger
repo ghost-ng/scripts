@@ -1,0 +1,195 @@
+#!/bin/bash
+OPTIND=1
+function cleanup {
+clear
+sleep 4
+if [[ $arg != *"-v"* ]]; then
+	echo "Cleaning up this mess..."
+	rm -f ./.temp2
+	rm -f ./temp1.pcap
+	rm -f ./.temp1
+	rm -f ./pcap
+	clear
+else
+	echo "Leaving a mess (verbose)..."
+	echo "Clean it up before you run the file again --- ls -al"
+	echo ""
+fi
+exit
+}
+function timecount {
+if [[ $stdin == "true" ]]; then
+        tput cup 0 0
+        echo "Unable to estimate stream completion time... "
+else
+declare -i size=$(du -b $file | cut -f1)
+declare -i num=$(expr $size \* 2 \* 2 / 96)     #2 secs per 96 byte query, * 2 queries
+#declare -i sec=$(expr $size % 60)
+#declare -i min=$(expr $totalsec / 60)
+
+declare -i min=0
+declare -i hour=0
+declare -i day=0
+    if((num>59));then
+        ((sec=num%60))
+        ((num=num/60))
+        if((num>59));then
+            ((min=num%60))
+            ((num=num/60))
+            if((num>23));then
+                ((hour=num%24))
+                ((day=num/24))
+            else
+                ((hour=num))
+            fi
+        else
+            ((min=num))
+        fi
+    else
+        ((sec=num))
+    fi
+    tput cup 0 0
+    echo -ne "Current Date & Time: $(date)  Est. Completion Time in: "
+    echo "$day"d "$hour"h "$min"m "$sec"s
+fi
+}
+function dnstransfer {
+        if [[ "$arg" != *-f* ]] || [[ "$arg" != *-q* ]] || [[ "$arg" != *-s* ]] || [[ "$arg" != *-d* ]]; then
+                echo "Not enough flags/switches"
+                echo "Run the -h command to view the help file"
+                echo "Required flags: f,d,q,s,t"
+                exit
+        else
+	clear
+        base64 -w 63 $file > ./.temp1
+        echo 'EOF' >> ./.temp1		#comment this out if you do not want to add the EOF line; use Ctrl-C to exit receiver loop
+        sed -i 's/+/?/g' ./.temp1
+	clear;timecount &
+	while IFS= read -r line || [ -n "$line" ]; do
+	trap "break;cleanup" 1 2
+	tput cup 1 0
+	dig +tries=2 +time=$timeout @$serverip $line.$domain
+	done < ./.temp1
+        fi
+cleanup
+exit
+}
+function dnsreceive {
+        if [[ "$arg" != *-i* ]] || [[ "$arg" != *-f* ]] || [[ "$arg" != *-p* ]] || [[ "$arg" != *-d* ]]; then
+                echo "Not enough flags/switches"
+                echo "Required flags: i,f,p,d,r"
+                echo "Run the -h command to view the help file"
+                exit
+        else
+                echo "Press CTRL-C when EOF reached"
+                echo "Starting the packet capture...scanning for EOF marker"
+                echo ""; echo "Your file will be located here: ./"$file""; echo "";
+                tcpdump -i $iface port 53 and host $host -l -n -s 0 > ./pcap &
+                while true; do
+                        if tail -f -n 1 pcap | grep -m 1 --line-buffered EOF; then
+                                kill -2 $(ps aux | grep tcpdump | grep -v "grep tcpdump" | awk '{print $2}') > /dev/null
+                                echo "EOF reached...starting cleanup!"
+                                sleep 3
+                                grep $host pcap | grep $domain pcap | cut -d ' ' -f 9 | cut -d '.' -f 1 | uniq | sed -e 's/\(EOF\)*$//g' > ./.temp2
+                                break
+                        fi
+                done
+                sed -i 's/?/+/g' ./.temp2
+                base64 -d ./.temp2 > $file
+                cleanup
+                exit
+
+	fi
+}
+function helpmenu {
+echo "
++++++++++++++++++Scavenger: DNS File Transfer and Receiving+++++++++++++++++
+-h  -----  This help mess
+-v  -----  verbose mode
+-z  -----  version/about
+*************Transmit Options*************
+-t  -----  You want to set up file transfer via the DNS protocol
+-f  -----  The input file to transfer; also takes in stdin '-'.  See example.
+-d  -----  The domain to use as the lookup string
+-q  -----  The timeout delay (sec) between DNS queries
+-s  -----  Destination server IP address
+*************Receive Options*************
+-r  -----  You want to receive a file transfer via the DNS protocol
+-p  -----  Host IP sending the data
+-i  -----  Listening interface
+-d  -----  The domain to look for in the DNS traffic
+-f  -----  The name to save the file as
+Examples:
+----|Transfer|----
+Required flags: f,d,q,s,t
+
+scavenger -f [inputfile] -d [domain] -q [dns query delay] -s [destination server IP] -t
+scavenger -f ./stegofile.jpg -d cyber.com -q 5 -s 8.8.8.8 -t
+echo "secret message" | ./scavenger -f - -d cyber.com -q 0 -s 8.8.8.8 -t
+
+----|Receiver (On 8.8.8.8 machine from previous ex.)|---- 
+Required flags: i,f,p,d,r
+
+scavenger -i [listening interface] -f [save-as name] -p [sender IP] -d [domain to listen for] -r
+scavenger -i eth0 -f ./stegofile.jpg -p 10.0.1.5 -d cyber.com -r
+
+Note1: You must have a receiver setup on the destination server's side to catch the DNS queries,
+prior to sending the traffic.
+Note2: You may need to preceed the script with sudo.
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+}
+function versioninfo {
+echo "
+*****************Scavenger*****************
+Scavenger is a script that leverages base64 encoding to transmit
+contents via the DNS protocol.
+
+Scavenger v1.0.6 Copyright (C) 2015 
+This program comes with ABSOLUTELY NO WARRANTY;
+This is free software, and you are welcome to redistribute it
+under certain conditions
+
+Last Updated: 10/12/2015
+"
+exit
+}
+arg="$*"
+NUMARGS="$#"
+if [[ $arg == *"-v"* ]]; then
+	echo "Number of arguments: $NUMARGS"
+	echo "Arguments entered: $arg"
+fi
+if [[ "$*" == *"-r"* ]] && [[ "$*" == *"-t"* ]]; then
+	echo "
+	=======================================================================
+	ERROR: You can only select -t OR -r NOT both, that wouldn't make sense.
+	======================================================================="
+	echo "Try -h for the help menu"
+	exit
+fi
+if [ $NUMARGS -eq 0 ]; then
+  helpmenu
+fi
+while getopts "zhf:d:q:s:p:i:vtr" option;
+do
+	case $option in	
+	h|\?) helpmenu
+	exit;;
+        f)      if [[ "$OPTARG" = "-" ]]; then
+                        file="${VAR:-/dev/stdin}"
+                        stdin="true"
+                else
+                        file="$OPTARG"
+                fi;;
+	d) domain="$OPTARG";;
+	q) timeout="$OPTARG";;
+	s) serverip="$OPTARG";;
+	p) host="$OPTARG";;
+	i) iface="$OPTARG";;
+	v) verbose=true;;
+	t) dnstransfer;;
+	r) dnsreceive;;
+	z) versioninfo;;
+esac
+done
+shift $((OPTIND-1))

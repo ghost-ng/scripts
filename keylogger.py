@@ -4,8 +4,8 @@ import logging
 import argparse
 from sys import exit
 
-parser = argparse.ArgumentParser(description='')
-parser.add_argument('--save', dest='save', action='store', help='location to store the captured keystrokes')
+#parser = argparse.ArgumentParser(description='')
+#parser.add_argument('--save', dest='save', action='store', help='location to store the captured keystrokes')
 args = parser.parse_args()
 
 try:

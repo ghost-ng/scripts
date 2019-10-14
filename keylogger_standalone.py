@@ -6,7 +6,7 @@ from sys import exit
 save_file = "system.dbg"
 
 try:
-    logging.basicConfig(filename = (args.save), level=logging.DEBUG, format='%(asctime)s: %(message)s')
+    logging.basicConfig(filename = (save_file), level=logging.DEBUG, format='%(asctime)s: %(message)s')
 except FileNotFoundError:
     pass
 

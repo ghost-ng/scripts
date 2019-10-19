@@ -207,7 +207,8 @@ function makeFolder {
 function scanHost {
 	# Launch rdesktop in the background
 	echoOutput "Initiating xfreedrp connection"
-	#rdesktop -u "" -a 16 $HOST 2>/dev/null & 
+	#rdesktop -u "" -a 16 $HOST 2>/dev/null &
+	echoVerbose "Trying $HOST"
 	xfreerdp /u:"" /v:$HOST /client-hostname:$HOST /cert-ignore /proxy:socks5://127.0.0.1:9050 -clipboard -themes -wallpaper -sec-nla > /dev/null 2>&1 &
 	pid=$!
 

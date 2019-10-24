@@ -26,7 +26,7 @@ def scan(port):
     while not exitFlag:
         if not task_queue.empty():
             ip = task_queue.get()
-            print("Scanning {}:{}".format(ip, port))
+            #print("Scanning {}:{}".format(ip, port))
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(3)
             try:
@@ -41,7 +41,7 @@ def load_queue(filename):
     with open(filename, "r") as file:
         for ip in file:
             task_queue.put(ip.rstrip())
-    print("Queue Loaded")
+    #print("Queue Loaded")
 
 def file_exists(filename):
     exists = os.path.isfile(filename)  # initial check   
@@ -68,10 +68,12 @@ def main():
     try:
         load_queue(filename)
     except KeyboardInterrupt:
-        print("punch!")
+        #print("punch!")
+        pass
     except Exception as e:
-        print(e)
-        print("Error on Line:{}".format(sys.exc_info()[-1].tb_lineno))
+        #print(e)
+        #print("Error on Line:{}".format(sys.exc_info()[-1].tb_lineno))
+        pass
 
     try:
         # Wait for queue to empty
@@ -87,9 +89,10 @@ def main():
         # Wait for all threads to complete
         for t in threads:
             t.join()
-        print ("All Done!")
+        #print ("All Done!")
     except Exception as e:
-        print(e)
+        #print(e)
+        pass
 
 if __name__ == '__main__':
     main()

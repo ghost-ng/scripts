@@ -15,7 +15,7 @@ class ScanController (threading.Thread):
         self.port = port
 
     def run(self):
-        print("running thread", self.thread_id)
+        #print("running thread", self.thread_id)
         scan(self.port)
 
 def scan(port):

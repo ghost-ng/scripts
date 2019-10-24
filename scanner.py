@@ -1,79 +1,95 @@
-# simple port scan tool
-# !/usr/bin/python
-# -*- coding: utf-8 -*-
+import sys
+import argparse
+import socket
+import threading
+import queue
+import os
 
-import optparse,sys
-from socket import *
-from threading import *
+task_queue = queue.Queue(10)
 
-screenLock = Semaphore(value=1)
+class ScanController (threading.Thread):
+        
+    def __init__(self, thread_id, port):
+        threading.Thread.__init__(self)
+        self.thread_id = thread_id
+        self.port = port
 
+    def run(self):
+        print("running thread", self.thread_id)
+        scan(self.port)
 
-def connScan(tgtHost, tgtPort):
-    global debug
-    try:
-        connSkt = socket(AF_INET, SOCK_STREAM)
-        connSkt.connect((tgtHost, tgtPort))
-        connSkt.send('\r\n'.encode())
-        results = connSkt.recv(1024).decode()
-        screenLock.acquire()
-        print('[+] %d/tcp open' % tgtPort)
-        print('[+] ' + str(results))
-    except:
-        screenLock.acquire()
-        if debug:
-            print('[-] %d/tcp closed' % tgtPort)
-    finally:
-        screenLock.release()
-        connSkt.close()
+def scan(port):
+    global exitFlag
+    global task_queue
 
+    exitFlag = False
+    while not exitFlag:
+        if not task_queue.empty():
+            ip = task_queue.get()
+            print("Scanning {}:{}".format(ip, port))
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(3)
+            try:
+                s.connect((ip, int(port)))
+                s.close()
+                print(ip)
+            except:
+                pass   
 
-def portScan(tgtHost, tgtPorts):
-    try:
-        tgtIP = gethostbyname(tgtHost)
-    except:
-        print("[-] Cannot resolve '%s': Unknown host" % tgtHost)
-        return
+def load_queue(filename):
+    global task_queue
+    with open(filename, "r") as file:
+        for ip in file:
+            task_queue.put(ip.rstrip())
+    print("Queue Loaded")
 
-    try:
-        tgtName = gethostbyaddr(tgtIP)
-        print('[+] Scan Results for: ' + tgtName[0])
-    except:
-        print('[+] Scan Results for: ' + tgtIP)
-
-    setdefaulttimeout(1)
-    for tgtPort in tgtPorts:
-        t = Thread(target=connScan, args=(tgtHost, int(tgtPort)))
-        t.start()
-
+def file_exists(filename):
+    exists = os.path.isfile(filename)  # initial check   
+    while exists is False:
+        print_fail("File does not exist, try again")
+        file = input("[New File]: ")
+        return file_exists(file)
+    return exists
 
 def main():
-    global debug
-    parser = optparse.OptionParser('usage %prog ' + \
-                                   '-H <target host> -p <target port>')
-    parser.add_option('-H', dest='tgtHost', type='string',
-                      help='specify target host')
-    parser.add_option('-d', action='store_true',dest='debug',default=False,
-                      help='enable debug mode')
-    parser.add_option('-p', dest='tgtPort', type='string',
-                      help='specify target port[s] separated by comma')
+    global exitFlag
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('-f', dest='file', action='store')
+    parser.add_argument('-p', dest='port', action='store')
+    parser.add_argument('--threads', dest='threads', action='store', default=1)
+    args = parser.parse_args()
 
-    (options, args) = parser.parse_args()
-    tgtPorts = options.tgtPort
-    tgtHost = options.tgtHost
-    debug = options.debug
+    filename = args.file
+    temp = file_exists(filename)
+    threads = []
+    num_threads = args.threads
+    port = args.port
 
-    if (tgtHost == None) | (tgtPorts[0] == None):
-        print(parser.usage)
-        exit(0)
+    try:
+        load_queue(filename)
+    except KeyboardInterrupt:
+        print("punch!")
+    except Exception as e:
+        print(e)
+        print("Error on Line:{}".format(sys.exc_info()[-1].tb_lineno))
 
-    if "," in options.tgtPort:
-        tgtPorts = str(options.tgtPort).split(',')
-    elif "-" in options.tgtPort:
-        tgtPorts = list(range(1,int(options.tgtPort.split('-')[1])))+[len(list(range(1,int(options.tgtPort.split('-')[1]))))+1]
-
-    portScan(tgtHost, tgtPorts)
-
+    try:
+        # Wait for queue to empty
+        for x in range(int(num_threads)):
+            # Create new threads
+            thread = ScanController(x, port)
+            thread.start()
+            threads.append(thread)
+        while not task_queue.empty():
+            pass
+        # Notify threads it's time to exit
+        exitFlag = True
+        # Wait for all threads to complete
+        for t in threads:
+            t.join()
+        print ("All Done!")
+    except Exception as e:
+        print(e)
 
 if __name__ == '__main__':
     main()

@@ -110,7 +110,7 @@ def main():
         pass
     
     if args.output is not None:
-        out_file.close() 
+        output_file.close() 
 
 if __name__ == '__main__':
     main()

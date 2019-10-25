@@ -26,7 +26,7 @@ def scan(port, timeout):
 
     exitFlag = False
     if args.output is not None:
-        out_file = open(args.savefile, 'w')
+        out_file = open(args.output, 'w')
     while not exitFlag:
         if not task_queue.empty():
             ip = task_queue.get()

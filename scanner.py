@@ -25,7 +25,7 @@ def scan(port, timeout):
     global task_queue
 
     exitFlag = False
-    if args.savefile is not None:
+    if args.output is not None:
         out_file = open(args.savefile, 'w')
     while not exitFlag:
         if not task_queue.empty():
@@ -37,11 +37,11 @@ def scan(port, timeout):
                 s.connect((ip, int(port)))
                 s.close()
                 print(ip)
-                if args.savefile is not None:
+                if args.output is not None:
                     out_file.write(ip)
             except:
                 pass
-    if args.savefile is not None:
+    if args.output is not None:
         out_file.close()   
 
 def load_queue(filename):

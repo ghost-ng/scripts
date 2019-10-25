@@ -64,9 +64,9 @@ def main():
     filename = args.file
     temp = file_exists(filename)
     threads = []
-    num_threads = args.threads
-    port = args.port
-    timeout = args.timeout
+    num_threads = int(args.threads)
+    port = int(args.port)
+    timeout = int(args.timeout)
 
 
     for x in range(int(num_threads)):

@@ -61,6 +61,7 @@ def file_exists(filename):
 
 def main():
     global exitFlag
+    global args
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-f', dest='file', action='store')
     parser.add_argument('-p', dest='port', action='store')

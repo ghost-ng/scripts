@@ -38,7 +38,7 @@ def scan(port, timeout):
                 s.close()
                 print(ip)
                 if args.output is not None:
-                    out_file.write(ip)
+                    output_file.write(ip)
             except:
                 pass
 

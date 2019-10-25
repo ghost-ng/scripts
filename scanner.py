@@ -4,6 +4,7 @@ import socket
 import threading
 import queue
 import os
+args = ""
 
 task_queue = queue.Queue(10)
 
@@ -24,6 +25,8 @@ def scan(port, timeout):
     global task_queue
 
     exitFlag = False
+    if args.savefile is not None:
+        out_file = open(args.savefile, 'w')
     while not exitFlag:
         if not task_queue.empty():
             ip = task_queue.get()
@@ -34,8 +37,12 @@ def scan(port, timeout):
                 s.connect((ip, int(port)))
                 s.close()
                 print(ip)
+                if args.savefile is not None:
+                    out_file.write(ip)
             except:
-                pass   
+                pass
+    if args.savefile is not None:
+        out_file.close()   
 
 def load_queue(filename):
     global task_queue
@@ -57,11 +64,13 @@ def main():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-f', dest='file', action='store')
     parser.add_argument('-p', dest='port', action='store')
+    parser.add_argument('-o', dest='output', action='store', default=None)
     parser.add_argument('--threads', dest='threads', action='store', default=1)
     parser.add_argument('--timeout', dest='timeout', action='store', default=3)
     args = parser.parse_args()
 
     filename = args.file
+    savefile = args.output
     temp = file_exists(filename)
     threads = []
     num_threads = int(args.threads)

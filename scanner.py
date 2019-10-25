@@ -46,7 +46,7 @@ def load_queue(filename):
 def file_exists(filename):
     exists = os.path.isfile(filename)  # initial check   
     while exists is False:
-        print_fail("File does not exist, try again")
+        print("File does not exist, try again")
         file = input("[New File]: ")
         return file_exists(file)
     return exists
@@ -65,6 +65,12 @@ def main():
     num_threads = args.threads
     port = args.port
 
+
+    for x in range(int(num_threads)):
+        # Create new threads
+        thread = ScanController(x, port)
+        thread.start()
+        threads.append(thread)
     try:
         load_queue(filename)
     except KeyboardInterrupt:
@@ -74,14 +80,7 @@ def main():
         #print(e)
         #print("Error on Line:{}".format(sys.exc_info()[-1].tb_lineno))
         pass
-
     try:
-        # Wait for queue to empty
-        for x in range(int(num_threads)):
-            # Create new threads
-            thread = ScanController(x, port)
-            thread.start()
-            threads.append(thread)
         while not task_queue.empty():
             pass
         # Notify threads it's time to exit

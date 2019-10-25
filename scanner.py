@@ -9,16 +9,17 @@ task_queue = queue.Queue(10)
 
 class ScanController (threading.Thread):
         
-    def __init__(self, thread_id, port):
+    def __init__(self, thread_id, port, timeout):
         threading.Thread.__init__(self)
         self.thread_id = thread_id
         self.port = port
+        self.timeout = timeout
 
     def run(self):
         #print("running thread", self.thread_id)
-        scan(self.port)
+        scan(self.port, self.timeout)
 
-def scan(port):
+def scan(port, timeout):
     global exitFlag
     global task_queue
 
@@ -28,7 +29,7 @@ def scan(port):
             ip = task_queue.get()
             #print("Scanning {}:{}".format(ip, port))
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(3)
+            s.settimeout(timeout)
             try:
                 s.connect((ip, int(port)))
                 s.close()
@@ -57,6 +58,7 @@ def main():
     parser.add_argument('-f', dest='file', action='store')
     parser.add_argument('-p', dest='port', action='store')
     parser.add_argument('--threads', dest='threads', action='store', default=1)
+    parser.add_argument('--timeout', dest='timeout', action='store', default=3)
     args = parser.parse_args()
 
     filename = args.file
@@ -64,11 +66,12 @@ def main():
     threads = []
     num_threads = args.threads
     port = args.port
+    timeout = args.timeout
 
 
     for x in range(int(num_threads)):
         # Create new threads
-        thread = ScanController(x, port)
+        thread = ScanController(x, port, timeout)
         thread.start()
         threads.append(thread)
     try:

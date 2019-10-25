@@ -5,6 +5,7 @@ import threading
 import queue
 import os
 args = ""
+output_file = None
 
 task_queue = queue.Queue(10)
 
@@ -25,8 +26,7 @@ def scan(port, timeout):
     global task_queue
 
     exitFlag = False
-    if args.output is not None:
-        out_file = open(args.output, 'w')
+    
     while not exitFlag:
         if not task_queue.empty():
             ip = task_queue.get()
@@ -41,8 +41,7 @@ def scan(port, timeout):
                     out_file.write(ip)
             except:
                 pass
-    if args.output is not None:
-        out_file.close()   
+
 
 def load_queue(filename):
     global task_queue
@@ -62,6 +61,9 @@ def file_exists(filename):
 def main():
     global exitFlag
     global args
+    global
+    output_file
+
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-f', dest='file', action='store')
     parser.add_argument('-p', dest='port', action='store')
@@ -74,6 +76,8 @@ def main():
     savefile = args.output
     temp = file_exists(filename)
     threads = []
+    if args.output is not None:
+        output_file = open(args.output, 'w')
     num_threads = int(args.threads)
     port = int(args.port)
     timeout = int(args.timeout)
@@ -105,6 +109,9 @@ def main():
     except Exception as e:
         #print(e)
         pass
+    
+    if args.output is not None:
+        out_file.close() 
 
 if __name__ == '__main__':
     main()

@@ -1,0 +1,57 @@
+#!/bin/bash
+
+if [ "$1" = "-h" ]
+then
+echo '
+# $1 - List of IPs or "<ip1> <ip2>"
+# $2 - base name to save the output files
+# $3 - commands to run in quotes
+#echo "use {} to replace ip argument"
+#echo "example: nmap {} -p 139,445 -vv --script=smb-vuln-ms10-061.nse,smb-vuln-ms17-010.nse --min-rate=500 -Pn"
+#echo "example: enum4linux -d -a {}"
+'
+exit
+fi
+SAVENAME=$2
+path=$(pwd)
+COMMANDS=$3
+
+makedirs $1
+
+function run (){
+  new_commands=$(echo $COMMANDS | sed "s/{}/$ip/")
+  NEWFILE=$path/$ip/$SAVENAME.txt
+  echo "===============================================" | tee $NEWFILE
+  echo "===============================================" | tee -a $NEWFILE
+  echo ""
+  echo "IP: $ip" | tee -a $NEWFILE
+  echo "SAVEFILE: $NEWFILE"
+  echo "COMMAND: $new_commands" | tee -a $NEWFILE
+  echo "" | tee -a $NEWFILE
+  $new_commands | tee -a $NEWFILE
+  echo ""
+  echo ""
+  echo "==============================================="
+  echo "==============================================="
+  echo ""
+
+}
+
+rm FILE 2> /dev/null
+if [[ ! -f $1 ]]
+then
+  echo "$1 is not a file!"
+  mkfifo FILE
+  echo -n $1 > FILE &
+  for ip in $(cat FILE)
+  do 
+    run $ip
+  done
+else
+  FILE=$1
+  for ip in $(cat $FILE)
+  do
+    run $ip
+  done
+fi
+rm FILE 2> /dev/null

@@ -16,8 +16,6 @@ SAVENAME=$2
 path=$(pwd)
 COMMANDS=$3
 
-makedirs $1
-
 function run (){
   new_commands=$(echo $COMMANDS | sed "s/{}/$ip/")
   NEWFILE=$path/$ip/$SAVENAME.txt
@@ -36,11 +34,11 @@ function run (){
   echo ""
 
 }
-
+makedirs $1
 rm FILE 2> /dev/null
 if [[ ! -f $1 ]]
 then
-  echo "$1 is not a file!"
+  #echo "$1 is not a file!"
   mkfifo FILE
   echo -n $1 > FILE &
   for ip in $(cat FILE)

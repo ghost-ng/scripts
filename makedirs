@@ -1,11 +1,26 @@
 #!/bin/bash
-FILE=$1
-for ip in $(cat $FILE)
-do
-if [[ ! -d $ip ]]
+function create_folder (){
+  ip=$1
+  if [[ ! -d $ip ]]
+  then
+    echo "[+] Creating Folder: $ip"
+    mkdir $ip
+  fi
+
+}
+
+if [[ ! -f $1 ]]
 then
- echo "[+] Creating Folder: $ip"
- mkdir $ip
+  ip_list=($1)
+
+  for ip in ${ip_list[@]}
+  do
+    create_folder $ip
+  done
+else
+  ip_list=$1
+  for ip in $ip_list
+  do
+    create_folder $ip
+  done
 fi
-done
-echo "[*] Done!"

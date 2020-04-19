@@ -1,0 +1,11 @@
+#!/bin/bash
+FILE=$1
+for ip in $(cat $FILE)
+do
+if [[ ! -d $ip ]]
+then
+ echo "[+] Creating Folder: $ip"
+ mkdir $ip
+fi
+done
+echo "[*] Done!"

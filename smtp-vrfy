@@ -1,0 +1,35 @@
+#!/usr/bin/python3
+# $1 - username
+# $2 - ip
+import socket
+import sys
+success = ()
+if len(sys.argv) != 3:
+	print("Usage: {} <username> <ip>".format(sys.argv[0]))
+	sys.exit(0)
+# Create a Socket
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+# Connect to the Server
+print("================================")
+print("[*] Trying: IP - {} Username - {}".format(sys.argv[2],sys.argv[1]))
+connect = s.connect((sys.argv[2],25))
+# Receive the banner
+banner = s.recv(1024).decode()
+print(banner)
+# VRFY a user
+msg = 'VRFY ' + sys.argv[1] + '\r\n'
+s.send(msg.encode())
+result = s.recv(1024).decode()
+print(result)
+if " 2.1.5 " in result or " 2.0.0 " in result:
+    if "VRFY" not in result:
+        success = ((sys.argv[2],sys.argv[1]))
+# Close the socket
+s.close()
+if len(success) > 0:
+    (ip,username) = success
+    print("- - - - - - - - - - - - - - - - - - - - - - ")
+    print("[+] Found Username --> {}:{}".format(ip,username))
+    print("- - - - - - - - - - - - - - - - - - - - - - ")
+print("================================")

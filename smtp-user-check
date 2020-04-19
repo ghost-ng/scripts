@@ -1,0 +1,20 @@
+#!/bin/bash
+# $1 - ip list
+# $2 - username list
+rm fifo2 2> /dev/null
+if [[ ! -f $1 ]]
+then
+ mkfifo fifo2
+ echo -n "$1" > fifo2 &
+ FILE=fifo2
+else
+ FILE=$1
+fi
+for ip in $(cat $FILE)
+do
+ for name in $(cat $2)
+ do
+  smtp-vrfy $name $ip
+ done
+done
+rm fifo2 2> /dev/null

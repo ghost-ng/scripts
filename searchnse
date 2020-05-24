@@ -1,15 +1,17 @@
 #!/bin/bash
-if [ "$1" = "-h" ]
+if [ "$1" = "-h" ] || [ $# -eq 0 ]
 then
+  echo "=========================================================="
   echo "SEARCH THE NMAP SCRIPTING ENGINE DATABASE
 by midnightseer
 
-  <arg1> <filter-term>
+  searchnse <arg1> <filter-term> <...>
   # arg 1 - search term
-  # arg 2 - optional: an additional filter-term / search parameter"
+  # args 2 thru ~ - optional: additional filter-terms"
+  echo "=========================================================="
   exit
 fi
-filter=$2
+
 function print_divs() {
   a=$1
   for i in $(seq ${#a})
@@ -22,7 +24,10 @@ IFS=$'\n'      # Change IFS to new line
 db_output=$(grep $1 /usr/share/nmap/scripts/script.db)
 if [[ ! -z $filter ]]
 then
-  db_output=$(echo "$db_output" | grep $filter) 
+  for filter in "$@"
+  do 
+  db_output=$(echo "$db_output" | grep $filter)
+  done
 fi
 db_array=($db_output)
 IFS=$SAVEIFS

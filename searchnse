@@ -1,16 +1,24 @@
 #!/bin/bash
-if [ "$1" = "-h" ] || [ $# -eq 0 ]
+if [[ $# -eq 0 ]]
 then
-  echo "=========================================================="
-  echo "SEARCH THE NMAP SCRIPTING ENGINE DATABASE
-by midnightseer
-
-  searchnse <arg1> <filter-term> <...>
-  # arg 1 - search term
-  # args 2 thru ~ - optional: additional filter-terms"
-  echo "=========================================================="
+  print_help
   exit
 fi
+
+SAVEIFS=$IFS   # Save current IFS
+match=1
+results=()
+
+function print_help() {
+echo "=========================================================="
+echo "        SEARCH THE NMAP SCRIPTING ENGINE DATABASE"
+echo "                      by midnightseer"
+echo ""
+echo '       Usage: searchnse -v -f "<arg1> <filter-term> <...>"'
+echo "       arg1 - typically the main search-word / protocol"
+echo "              (ie smb or http)"
+echo "=========================================================="
+}
 
 function print_divs() {
   a=$1
@@ -19,32 +27,77 @@ function print_divs() {
     echo -n "="
   done
 }
-SAVEIFS=$IFS   # Save current IFS
-IFS=$'\n'      # Change IFS to new line
-db_output=$(grep $1 /usr/share/nmap/scripts/script.db)
-if [[ ! -z $filter ]]
-then
-  for filter in "$@"
-  do 
-  db_output=$(echo "$db_output" | grep $filter)
-  done
-fi
-db_array=($db_output)
-IFS=$SAVEIFS
-for line in "${db_array[@]}"
+
+
+
+IFS=" "
+
+while getopts "hvf:" opt;
 do
-  script_name=$(echo "$line" | cut -d " " -f5 | sed 's/,//g' | sed 's/"//g')
-  #echo "nmap --script-help=$script_name"
-  help_output=$(nmap --script-help=$script_name)
-  script_args=$(cat /usr/share/nmap/scripts/$script_name | sed -n -e '/-- @args/,/auth.*/ p')
-  echo -n "="
-  print_divs $script_name
-  echo "="
-  echo " $script_name "
-  echo -n "="
-  print_divs $script_name
-  echo "="
-  echo "$help_output" | sed -e '1,3d'
-  echo "Script Supplemental Help:"
-  echo "$script_args"
+  case $opt in
+    h)  print_help && exit;;
+    v)  VERBOSE=1;;
+    f)  filters=($OPTARG);;
+  esac
 done
+
+
+IFS=$'\n'      # Change IFS to new line
+
+candidates=$(grep ${filters[0]} /usr/share/nmap/scripts/script.db)
+candidates=($candidates)
+
+####   get file names of nse scripts     ####
+####   Big loop around each found script ####
+
+for line in "${candidates[@]}"
+do
+  match=1
+  script_name=$(echo "$line" | cut -d " " -f5 | sed 's/,//g' | sed 's/"//g')
+  #echo "searching through: $script_name"
+  script_help=$(nmap --script-help=$script_name 2>&1)
+  #echo "$script_help"
+
+####   loop over filters   ####
+  count=0
+  for filter in ${filters[@]}
+  do
+  #echo "Trying Filter: $filter"
+  #Nmap and your stupid stdin/stderror output, touch to pass stderr to functions
+    if [[ $match -eq 1 ]]		#tests if the prev loop found a match
+    then
+      if echo $script_help | grep -qsi $filter
+      then
+        match=1
+        #echo "MATCH! $script_name"
+      else
+        match=0
+      fi
+    fi
+  done
+
+  if [[ $match -eq 1 ]]
+  then
+    if [[ $VERBOSE -eq 1 ]]
+    then
+      script_args=$(echo "$script_help" | sed -n -e '/-- @args/,/auth.*/ p')
+      echo -n "="
+      print_divs $script_name
+      echo "="
+      echo " $script_name "
+      echo -n "="
+      print_divs $script_name
+      echo "="
+      echo ""
+      echo -e "\e[1;4mcat /usr/share/nmap/scripts/$script_name\e[0m"
+      echo ""
+      echo "$script_help" | sed -e '1,3d'
+      echo "Script Arguments:"
+      echo "$script_args"
+    else
+      echo -e "\e[1;4mcat /usr/share/nmap/scripts/$script_name\e[0m"
+    fi
+  fi
+done
+
+IFS=$SAVEIFS

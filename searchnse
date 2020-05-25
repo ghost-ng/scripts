@@ -14,8 +14,9 @@ echo "=========================================================="
 echo "        SEARCH THE NMAP SCRIPTING ENGINE DATABASE"
 echo "                      by midnightseer"
 echo ""
-echo '       Usage: searchnse -v -f "<arg1> <filter-term> <...>"'
-echo "       arg1 - typically the main search-word / protocol"
+echo ' Usage: searchnse -h'
+echo '        searchnse -v -f "<arg1> <filter-term> <...>"'
+echo "        arg1 - typically the main search-word / protocol"
 echo "              (ie smb or http)"
 echo "=========================================================="
 }

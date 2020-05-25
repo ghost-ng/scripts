@@ -10,15 +10,23 @@ match=1
 results=()
 
 function print_help() {
-echo "=========================================================="
-echo "        SEARCH THE NMAP SCRIPTING ENGINE DATABASE"
-echo "                      by midnightseer"
+echo "=============================================================="
+echo "          SEARCH THE NMAP SCRIPTING ENGINE DATABASE"
+echo "                        by midnightseer"
 echo ""
-echo ' Usage: searchnse -h'
-echo '        searchnse -v -f "<arg1> <filter-term> <...>"'
-echo "        arg1 - typically the main search-word / protocol"
-echo "              (ie smb or http)"
-echo "=========================================================="
+echo "  Description: searchnse is a simple nmap scripting engine" 
+echo "  search tool.  Tired of nmap github searching?  Tired of"
+echo "  cat'ing and grep'ing nse files?  There's a script for that!"
+echo ""
+echo "  Usage: searchnse -h"
+echo '         searchnse -f "<arg1> <filter-term> <...>"'
+echo "                   -v -f"
+echo "         -v : verbose; print the script help contents"
+echo "         -f : specify filter terms in "quotes"; 1st term"
+echo "              should align with nmap's protocol definitions"
+echo "         arg1 - typically the main search-word / protocol"
+echo "                (ie smb or http)"
+echo "====++========================================================"
 }
 
 function print_divs() {

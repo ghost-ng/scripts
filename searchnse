@@ -3,31 +3,33 @@
 
 SAVEIFS=$IFS   # Save current IFS
 match=1
+f_flag=0
 
 ################################
 #    HELFPUL HELP FUNCTION     #
 ################################
 
 function print_help() {
-echo "================================================================"
-echo "                           searchnse                            "
-echo "================================================================"
-echo "|          SEARCH THE NMAP SCRIPTING ENGINE DATABASE           |"
-echo "|                        by midnightseer                       |"
-echo "|                                                              |"
-echo "|  Description: searchnse is a simple nmap scripting engine    |"
-echo "|  search tool.  Tired of nmap github searching?  Tired of     |"
-echo "|  cat'ing and grep'ing nse files?  There's a script for that! |"
-echo "|                                                              |"
-echo "|  Usage: searchnse -h                                         |"
-echo '|         searchnse -f "<arg1> <filter-term> <...>"            |'
-echo "|                   -v -f                                      |"
-echo "|         -v : verbose; print the script help contents         |"
-echo '|         -f : specify filter terms in "quotes"; 1st term      |'
-echo "|              should align with nmap's protocol definitions   |"
-echo "|         arg1 - typically the main search-word / protocol     |"
-echo "|                (ie smb or http)                              |"
-echo "================================================================"
+echo "================================================================="
+echo "=              - - - - - - searchnse - - - - - -                ="
+echo "================================================================="
+echo "|          SEARCH THE NMAP SCRIPTING ENGINE DATABASE            |"
+echo "|                        by midnightseer                        |"
+echo "|                                                               |"
+echo "|  Description: searchnse is a simple nmap scripting engine     |"
+echo "|  search tool.  Tired of nmap github searching?  Tired of      |"
+echo "|  cat'ing and grep'ing nse files?  There's a script for that!  |"
+echo "|                                                               |"
+echo "|  Usage: searchnse -h                                          |"
+echo '|         searchnse -f "<arg1> <filter-term> <...>"             |'
+echo "|                   -v -f                                       |"
+echo "|         -v : verbose; print the script help contents          |"
+echo '|         -f : specify filter terms in "quotes"; 1st term       |'
+echo "|              should align with nmap's protocol definitions    |"
+echo "|         arg1 - typically the main search-word / protocol      |"
+echo "|                (ie smb or http)                               |"
+echo "================================================================="
+exit
 }
 
 ################################
@@ -57,11 +59,19 @@ IFS=" "
 while getopts "hvf:" opt;
 do
   case $opt in
-    h)  print_help && exit;;
+    h)  print_help;;
     v)  VERBOSE=1;;
-    f)  filters=($OPTARG);;
+    f)  filters=($OPTARG);f_flag=1;;
+    :)  print_help;;
+    \?) print_help;; 
   esac
 done
+
+if [[ $f_flag -eq 0 ]]
+then
+  echo "Error! -f is mandatory!"
+  print_help
+fi
 
 
 IFS=$'\n'      # Change IFS to new line
@@ -85,7 +95,7 @@ do
   for filter in ${filters[@]}
   do
   #echo "Trying Filter: $filter"
-  #Nmap and your stupid stdin/stderror output, touch to pass stderr to functions
+  #Nmap and your stupid stdin/stderror output, tough to pass stderr to functions
     if [[ $match -eq 1 ]]		#tests if the prev loop found a match
     then
       if echo $script_help | grep -qsi $filter

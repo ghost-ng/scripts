@@ -115,6 +115,7 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
  
     def do_POST(self):
         """Serve a POST request."""
+        self.request.settimeout(10000)
         r, info = self.deal_post_data()
         print("[+] File Uploaded! {} --> {}".format(info, self.client_address))
         f = BytesIO()

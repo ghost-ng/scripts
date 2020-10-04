@@ -103,6 +103,14 @@
 /logs/security_log
 /opt/lampp/etc/httpd.conf
 /opt/xampp/etc/php.ini
+/proc/net/tcp
+/proc/net/udp
+/proc/net/fib_trie
+/proc/sched_debug
+/proc/self/cmdline
+/proc/self/environ
+/proc/self/loginuid
+/proc/self/exe
 /proc/cpuinfo
 /proc/filesystems
 /proc/interrupts
@@ -257,7 +265,3 @@
 ~/.xinitrc
 ~/.Xresources
 ~/.xsession/
-/proc/net/tcp
-/proc/net/udp
-/proc/net/fib_trie
-/proc/sched_debug

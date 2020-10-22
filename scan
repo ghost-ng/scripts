@@ -1,0 +1,16 @@
+ip="$1"
+echo "*********************************"
+echo "[*] Port Scanning $1"
+echo "*********************************"
+echo ""
+output=$(sudo nmap -p- --min-rate=1000 -T4 $ip -Pn)
+echo "$output"
+ports=$(echo "$output" | grep ^[0-9] | cut -d '/' -f 1 | tr '\n' ',' | sed s/,$//)
+echo ""
+echo "*********************************"
+echo "[*] Service Scanning $1"
+echo "*********************************"
+echo ""
+output=$(sudo nmap -O -sC -sV -p$ports $ip -Pn)
+echo "$output"
+echo ""

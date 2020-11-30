@@ -2284,7 +2284,7 @@ div.shell-menu div.config {
 }
 .shell-option-pop-up {
   padding: 10px;
-  background-color: lightslategray;
+  background-color: #384757;
   max-width: 50%;
   margin: auto;
   color: white;
@@ -2319,7 +2319,7 @@ div.shell-menu div.config {
     overflow-y: scroll;
 }
 .cmd-input{
-    background-color: black;
+    background-color: #282828;
     border: none;
     color: white;
     font-family: Courier;

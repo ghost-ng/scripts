@@ -7,16 +7,13 @@ from __future__ import print_function
 # also I strongly prefer to not use certuti if I don't have to.  The user should alread know how to get files onto the system
 # 2. I added script arguments (I opted to not use argparse)
 # 3. I added support for different ports
+# 4. I removed unnecessary imports
 # Use pymssql >= 1.0.3 (otherwise it doesn't work correctly)
 
 
 import _mssql
 import base64
-import shlex
 import sys
-import tqdm
-import hashlib
-from io import open
 try: input = raw_input
 except NameError: pass
 

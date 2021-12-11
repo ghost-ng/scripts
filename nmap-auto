@@ -1,0 +1,90 @@
+#!/bin/bash
+ip=$1
+
+function whatweb_func {
+	pid=$1
+	echo "WHATWEB - PID: $pid"
+	while true
+	do
+		if [[ $(kill -s 0 $pid 2> /dev/null) ]]
+		then
+			echo "============================================"
+			echo "                  WHATWEB"
+			echo "============================================"
+			cat whatweb.save
+			echo ""
+			break
+		fi
+	done
+}
+function nikto_func {
+	pid=$1
+	echo "NIKTO - PID: $pid"
+	while true
+	do
+		if [[ $(kill -s 0 $pid 2> /dev/null) ]]
+		then
+			echo "============================================"
+			echo "                  DIRB"
+			echo "============================================"
+			cat dirb.save
+			echo ""
+			break
+		fi
+	done
+}
+function dirb_func {
+	pid=$1
+	echo "DIRB - PID: $pid"
+	while true
+	do
+		if [[ $(kill -s 0 $pid 2> /dev/null) ]]
+		then
+			echo "============================================"
+			echo "                  NIKTO"
+			echo "============================================"
+			cat nikto.txt
+			echo ""
+			break
+		fi
+	done
+}
+
+
+command="nmap -Pn -p- --min-rate=1000 -T4 $ip"
+echo "============================================"
+echo "$command"
+echo "============================================"
+$command &> nmap.save
+cat nmap.save 
+ports=$(cat nmap.save | grep ^[0-9] | cut -d '/' -f 1 | tr '\n' ',' | sed s/,$//)
+command="nmap -Pn -sC -sV -p$ports $ip"
+output=$($command)
+echo "$output" &>> nmap.save
+echo "============================================"
+echo "$command"
+echo "============================================"
+echo "$output"
+output=$(echo "$output" | sed '/https:\/\/nmap.org/d')
+echo "$output"
+#if [[ "$output" == *"https"* ]]
+#then
+	#echo "[+] Found HTTPS in output"
+#	url="https://$1"
+#	whatweb $url > whatweb.save &
+#	whatweb_func $! &
+#	nikto -host $url -output nikto.txt &
+#	nikto_func $! &
+#	dirb $url -w -S -o dirb.save &
+#	dirb_func $! &
+#elif [[ "$output" == *"http"* ]]
+#then
+	#echo "[+] Found HTTP in output"
+#	url="http://$1"
+#	whatweb $url > whatweb.save &
+#	whatweb_func $! &
+#	nikto -host $url -output nikto.txt &
+#	nikto_func $! &
+#	dirb $url -w -S -o dirb.save &
+#	dirb_func $! &
+#fi

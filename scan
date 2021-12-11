@@ -4,42 +4,63 @@ if [ $EUID != 0 ]; then
     sudo "$0" "$@"
     exit $?
 fi
-ip="$1"
-echo "**************************************"
-echo "   TCP Port Scanning: $1"
-echo "**************************************"
-echo ""
-echo "[*] Running a TCP scan against all ports"
-echo ""
-output=$(sudo nmap -p- --min-rate=1000 -T4 $ip -Pn)
-echo "$output"
-tcpports=$(echo "$output" | grep ^[0-9] | cut -d '/' -f 1 | tr '\n' ',' | sed s/,$//)
-echo ""
-echo "***************************************************"
-echo "*  UDP Port Scanning Top 1000: $1"
-echo "***************************************************"
-echo ""
-echo "[*] Running a UDP scan against top 1000 ports"
-echo ""
-output=$(sudo nmap -sU --top-ports=1000 --min-rate=1000 -T4 $ip -Pn)
-echo "$output"
-udpports=$(echo "$output" | grep open | grep ^[0-9] | cut -d '/' -f 1 | tr '\n' ',' | sed s/,$//)
-echo ""
-echo "**************************************"
-echo "   Service Scanning $1"
-echo "**************************************"
-echo ""
-if [[ ! -z "tcpports" ]]
-then
-	echo "[*] Running TCP Service Scan: $tcpports"
-	output=$(sudo nmap -O -sC -sV -p $tcpports $ip -Pn)
-	echo "$output"
+
+
+function scan() {
+	ip="$1"
+	echo "**************************************"
+	echo "   TCP Port Scanning: $1"
+	echo "**************************************"
 	echo ""
-fi
-if [[ ! -z "$udpports" ]]
-then
-	echo "[*] Running UDP Service Scan: $udpports"
-	output=$(sudo nmap -O -sC -sV -p $udpports $ip -Pn)
-	echo "$output"
+	echo "[*] Running a TCP scan against all ports"
 	echo ""
+	output=$(sudo nmap -p- --min-rate=1000 -T4 $ip -Pn)
+	echo "$output"
+	tcpports=$(echo "$output" | grep ^[0-9] | cut -d '/' -f 1 | tr '\n' ',' | sed s/,$//)
+	echo ""
+	echo "***************************************************"
+	echo "*  UDP Port Scanning Top 1000: $1"
+	echo "***************************************************"
+	echo ""
+	echo "[*] Running a UDP scan against top 1000 ports"
+	echo ""
+	output=$(sudo nmap -sU --top-ports=1000 --min-rate=1000 -T4 $ip -Pn)
+	echo "$output"
+	udpports=$(echo "$output" | grep open | grep ^[0-9] | cut -d '/' -f 1 | tr '\n' ',' | sed s/,$//)
+	echo ""
+	echo "**************************************"
+	echo "   Service Scanning $1"
+	echo "**************************************"
+	echo ""
+	if [[ ! -z "tcpports" ]]
+	then
+		echo "[*] Running TCP Service Scan: $tcpports"
+		output=$(sudo nmap -O -sC -sV -p $tcpports $ip -Pn)
+		echo "$output"
+		echo ""
+	fi
+	if [[ ! -z "$udpports" ]]
+	then
+		echo "[*] Running UDP Service Scan: $udpports"
+		output=$(sudo nmap -O -sC -sV -p $udpports $ip -Pn)
+		echo "$output"
+		echo ""
+	fi
+}
+ip=$1
+if [[ "$ip" == *"-"* ]]
+then
+	#echo Found Ip Range
+	var1=$(echo "$ip" | cut -f1 -d-)
+	#echo $var1
+	var2=$(echo "$ip" | cut -f2 -d-)
+	#echo $var2
+	ip_list=$(prips $var1 $var2)
+	#echo $ip_list
+	for ip in "$ip_list"
+	do
+		scan $ip | tee $ip.nmap.save
+	done
+else
+	scan $ip
 fi

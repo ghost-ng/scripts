@@ -50,17 +50,18 @@ function scan() {
 ip=$1
 if [[ "$ip" == *"-"* ]]
 then
-	#echo Found Ip Range
+	echo [*] Scanning an Ip Range
 	var1=$(echo "$ip" | cut -f1 -d-)
 	#echo $var1
 	var2=$(echo "$ip" | cut -f2 -d-)
 	#echo $var2
 	ip_list=$(prips $var1 $var2)
-	#echo $ip_list
-	for ip in "$ip_list"
+	echo [+] Range: $ip_list
+	for ip in $ip_list
 	do
-		scan $ip | tee $ip.nmap.save
+		echo [*] Save Location: $ip.nmapsave
+		scan $ip | tee $ip.nmapsave
 	done
 else
-	scan $ip
+	scan $ip | tee $ip.nmapsave
 fi

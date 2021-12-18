@@ -20,14 +20,14 @@ else
     WHITE='\033[0;0m'
 fi
 
+
 savefile="$target.wrap"
 
 function print_cmd {
 	echo -e "${BLUE}[*] Command: $1${NC}" | tee -a $savefile
 }
 
-
-
+function print_banner {
 echo -e "${GREEN}
    __     ________  _________  _    _______  ___  ______    __   
   / /    /  ___|  \/  || ___ \| |  | | ___ \/ _ \ | ___ \   \ \  
@@ -49,6 +49,16 @@ echo -e "${GREEN}                            ((\o/))
                ${TEAL}https://github.com/unkn0wnsyst3m/
 ${NC}"
 sleep 2
+}
+
+if [ $# -eq 0 ]; then
+    echo "usage: 
+    $0 <target> <port> [nocolors]"
+    print_banner
+    exit 1
+fi
+
+print_banner
 
 echo -e "${RED}
  ===================================

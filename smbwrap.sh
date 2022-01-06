@@ -1,27 +1,5 @@
 #!/bin/bash
-target=$1
-port=$2
-clr=$3
 
-if [[ $clr == "nocolors" ]] 
-then
-    RED='\033[0m'
-    GREEN='\033[0m'
-    NC='\033[0m'
-    BLUE='\033[0m'
-    TEAL='\033[0m'
-    WHITE='\033[0m'
-else
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    NC='\033[0m'
-    BLUE='\033[0;34m'
-    TEAL='\033[0;36m'
-    WHITE='\033[0;0m'
-fi
-
-
-savefile="$target.wrap"
 
 function print_cmd {
 	echo -e "${BLUE}[*] Command: $1${NC}" | tee -a $savefile
@@ -48,26 +26,96 @@ echo -e "${GREEN}                            ((\o/))
                   ${TEAL}https://mfnttps.github.io/
                ${TEAL}https://github.com/unkn0wnsyst3m/
 ${NC}"
-sleep 2
+
+}
+
+
+function help_menu {
+    echo -e "usage: 
+    $0 -t <target> -p <port> [-n [nocolors]]
+    $0 -t <target> -p <port> [-U] <username> [-P] <password>
+    ${RED}Mandatory: -t <target>${NC}"
+    print_banner
+
+    exit 1
 }
 
 if [ $# -eq 0 ]; then
-    echo "usage: 
-    $0 <target> <port> [nocolors]"
-    print_banner
-    exit 1
+    help_menu
 fi
 
-print_banner
 
+
+
+username=""
+password=""
+target=""
+port="445"
+nocolors=false
+
+unset OPTIND
+unset OPTARG
+OPTARG=""
+
+while getopts ":U:P:p:t:nh" flag
+do
+    case $flag in
+        
+        U) username=$OPTARG
+            ;;
+        P) password=$OPTARG
+            ;;
+        p) port=$OPTARG
+            ;;
+        t) target=$OPTARG
+            ;;
+        n) nocolors=true
+            ;;
+        h) help_menu
+            ;;
+        ?) help_menu
+            ;;
+
+    esac
+    
+done
+
+if [[ $target = "" ]]; then
+    help_menu
+fi
+
+if [[ $nocolors = true ]] 
+then
+    RED='\033[0m'
+    GREEN='\033[0m'
+    NC='\033[0m'
+    BLUE='\033[0m'
+    TEAL='\033[0m'
+    WHITE='\033[0m'
+else
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    NC='\033[0m'
+    BLUE='\033[0;34m'
+    TEAL='\033[0;36m'
+    WHITE='\033[0;0m'
+fi
+
+savefile="$target.wrap"
+
+print_banner
 echo -e "${RED}
  ===================================
 |         Target Information        |
  ===================================
   Target ......... $target
   Port ........... $port
+  Username ....... $username
+  Password ....... $password
+  Save File ...... $savefile
 ${NC}" | tee -a $savefile
 
+sleep 2
 
 ##NMAP
 
@@ -90,20 +138,34 @@ echo -e "${RED}
  =============================
 ${NC}" | tee -a $savefile
 
-cmd="crackmapexec smb --port $port $target --rid-brute -u '' -p ''"
-print_cmd "$cmd"
-cmd="$cmd | tee -a $savefile"
-eval "$cmd"
+if [[ $username = "" && $password = "" ]]
+then
 
-cmd="crackmapexec smb --port $port $target --rid-brute -u Guest -p ''"
-print_cmd "$cmd"
-cmd="$cmd | tee -a $savefile"
-eval "$cmd"
+    cmd="crackmapexec smb --port $port $target --rid-brute -u '' -p ''"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
 
-cmd="crackmapexec smb --port $port $target --rid-brute  -u Anonymous -p ''"
+    cmd="crackmapexec smb --port $port $target --rid-brute -u Guest -p ''"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+    cmd="crackmapexec smb --port $port $target --rid-brute -u Anonymous -p ''"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+fi
+
+if [[ ! $username = "" ]] || [[ ! $password = "" ]]
+then
+    cmd="crackmapexec smb --port $port $target --rid-brute -u $username -p '$password' --shares --spider '*'"
 print_cmd "$cmd"
 cmd="$cmd | tee -a $savefile"
+#echo "$cmd"
 eval "$cmd"
+fi
 
 ##ENUM4LINUX.PY
 
@@ -113,10 +175,40 @@ echo -e "${RED}
  =============================
 ${NC}" | tee -a $savefile
 
-cmd="enum4linux-ng.py -AR 192.168.71.53"
+if [[ $username = "" && $password = "" ]]
+then
+
+    cmd="enum4linux-ng.py -vAR $target"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+    cmd="enum4linux-ng.py -vAR $target -u '' -p ''"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+    cmd="enum4linux-ng.py -vAR $target -u Guest -p ''"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+    cmd="enum4linux-ng.py -vAR $target -u Anonymous -p ''"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+fi
+
+
+if [[ ! $username = "" ]] || [[ ! $password = "" ]]
+then
+    cmd="enum4linux-ng.py -vAR $target -u $username -p '$password'"
 print_cmd "$cmd"
 cmd="$cmd | tee -a $savefile"
+#echo $cmd
 eval "$cmd"
+fi
 
 ##SMBMAP
 
@@ -126,19 +218,32 @@ echo -e "${RED}
  =============================
 ${NC}" | tee -a $savefile
 
-cmd="smbmap -H 192.168.71.53 -u 'Anonymous' -p ''"
+if [[ $username = "" && $password = "" ]]
+then
+
+    cmd="smbmap -H $target -u 'Anonymous' -p ''"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+    cmd="smbmap -H $target -u 'Guest' -p ''"
+    print_cmd "$cmd"
+    eval "$cmd"
+
+    cmd="smbmap -H $target -u '' -p ''"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+fi
+
+if [[ ! $username = "" ]] || [[ ! $password = "" ]]
+then
+    cmd="smbmap -H $target -u $username -p '$password'"
 print_cmd "$cmd"
 cmd="$cmd | tee -a $savefile"
 eval "$cmd"
-
-cmd="smbmap -H 192.168.71.53 -u 'Guest' -p ''"
-print_cmd "$cmd"
-eval "$cmd"
-
-cmd="smbmap -H 192.168.71.53 -u '' -p ''"
-print_cmd "$cmd"
-cmd="$cmd | tee -a $savefile"
-eval "$cmd"
+fi
 
 echo -e "${RED}
  =============================
@@ -146,42 +251,54 @@ echo -e "${RED}
  =============================
 ${NC}" | tee -a $savefile
 
-cmd="smbclient -L $target --port=$port --option='client min protocol=NT1' -N"
-print_cmd "$cmd"
-eval "$cmd"
+if [[ $username = "" && $password = "" ]]
+then
 
-cmd="echo '' | smbclient -L $target --port=$port --option='client min protocol=NT1' -U ''"
+    cmd="smbclient -L $target --port=$port --option='client min protocol=NT1' -N"
+    print_cmd "$cmd"
+    eval "$cmd"
+
+    cmd="echo '' | smbclient -L $target --port=$port --option='client min protocol=NT1' -U ''"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+    cmd="echo '' | smbclient -L $target --port=$port --option='client min protocol=NT1' -U 'Anonymous'"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+    cmd="echo '' | smbclient -L $target --port=$port --option='client min protocol=NT1' -U 'Guest'"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+    cmd="smbclient -L $target --port=$port --option='client min protocol=LANMAN1' -N"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+    cmd="echo '' | smbclient -L $target --port=$port --option='client min protocol=LANMAN1' -U ''"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+    cmd="echo '' | smbclient -L $target --port=$port --option='client min protocol=LANMAN1' -U 'Anonymous'"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+    cmd="echo '' | smbclient -L $target --port=$port --option='client min protocol=LANMAN1' -U 'Guest'"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
+
+fi
+
+if [[ ! $username = "" || ! $password = "" ]]
+then
+    cmd="echo '$password' | smbclient -L $target --port=$port --option='client min protocol=LANMAN1' -U $username"
 print_cmd "$cmd"
 cmd="$cmd | tee -a $savefile"
 eval "$cmd"
-
-cmd="echo '' | smbclient -L $target --port=$port --option='client min protocol=NT1' -U 'Anonymous'"
-print_cmd "$cmd"
-cmd="$cmd | tee -a $savefile"
-eval "$cmd"
-
-cmd="echo '' | smbclient -L $target --port=$port --option='client min protocol=NT1' -U 'Guest'"
-print_cmd "$cmd"
-cmd="$cmd | tee -a $savefile"
-eval "$cmd"
-
-cmd="smbclient -L $target --port=$port --option='client min protocol=LANMAN1' -N"
-print_cmd "$cmd"
-cmd="$cmd | tee -a $savefile"
-eval "$cmd"
-
-cmd="echo '' | smbclient -L $target --port=$port --option='client min protocol=LANMAN1' -U ''"
-print_cmd "$cmd"
-cmd="$cmd | tee -a $savefile"
-eval "$cmd"
-
-cmd="echo '' | smbclient -L $target --port=$port --option='client min protocol=LANMAN1' -U 'Anonymous'"
-print_cmd "$cmd"
-cmd="$cmd | tee -a $savefile"
-eval "$cmd"
-
-cmd="echo '' | smbclient -L $target --port=$port --option='client min protocol=LANMAN1' -U 'Guest'"
-print_cmd "$cmd"
-cmd="$cmd | tee -a $savefile"
-eval "$cmd"
-
+fi

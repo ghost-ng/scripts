@@ -1,65 +1,170 @@
 #!/bin/bash
 
+nocolors=false
+rate="1000"
+unset OPTIND
+unset OPTARG
+OPTARG=""
+
+
+function print_banner {
+echo -e "${GREEN}
+_____ ___  ___ __ _ _ ____      ___ __ __ _ _ __  _____ 
+|_____/ __|/ __/ _\` | '_ \ \ /\ / / '__/ _\` | '_ \|_____|
+|_____\__ \ (_| (_| | | | \ V  V /| | | (_| | |_) |_____|
+      |___/\___\__,_|_| |_|\_/\_/ |_|  \__,_| .__/       
+                                            |_|        ${NC}"
+echo -e "${GREEN} 
+		   █▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█
+		   █                █
+		   █                █
+		   █  ▄▄            █
+		   █    ██          █
+		   █  ▀▀            █
+		   █      ▀▀▀▀▀     █
+		   █                █
+		   █▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█ 
+
+           ${WHITE}wrapped with love by unkn0wnsyst3m
+              ${TEAL}https://mfnttps.github.io/
+           ${TEAL}https://github.com/unkn0wnsyst3m/${NC}"
+
+}
+
+
+function help_menu {
+    echo -e "usage: 
+    $0 -t <target> [-r] <rate> [-n]
+    ${RED}Mandatory: -t <target>${NC}"
+    print_banner
+
+    exit 1
+}
+
+if [ $# -eq 0 ]; then
+    help_menu
+fi
+
+
+while getopts ":r:t:nh" flag
+do
+    case $flag in
+        
+        t) ip=$OPTARG
+			;;
+        r) rate=$OPTARG
+            ;;
+        n) nocolors=true
+            ;;
+        h) help_menu
+            ;;
+        ?) help_menu
+            ;;
+
+    esac
+    
+done
+
+if [[ $nocolors = true ]] 
+then
+    RED='\033[0m'
+    GREEN='\033[0m'
+    NC='\033[0m'
+    BLUE='\033[0m'
+    TEAL='\033[0m'
+    WHITE='\033[0m'
+else
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    NC='\033[0m'
+    BLUE='\033[0;34m'
+    TEAL='\033[0;36m'
+    WHITE='\033[0;0m'
+fi
+
+if [[ $ip = "" ]]; then
+    help_menu
+fi
+
 if [ $EUID != 0 ]; then
     sudo "$0" "$@"
     exit $?
 fi
 
+savefile="$ip.nmapsave"
+
+print_banner
+echo -e "${RED}
+ ===================================
+|         Target Information        |
+ ===================================
+  Target ......... $ip
+  Rate ........... $rate
+
+  Savefile ....... $ip.nmapsave
+
+${NC}" | tee -a $savefile
+
+sleep 2
 
 function scan() {
 	ip="$1"
+	echo -e "${BLUE}"
 	echo "**************************************"
 	echo "   TCP Port Scanning: $1"
 	echo "**************************************"
-	echo ""
+	echo -e "${GREEN}"
 	echo "[*] Running a TCP scan against all ports"
-	echo ""
-	output=$(sudo nmap -p- --min-rate=1000 -T4 $ip -Pn)
+	echo -e "${NC}"
+	output=$(sudo nmap -p- --min-rate=$rate -T5 $ip -Pn)
 	echo "$output"
 	tcpports=$(echo "$output" | grep ^[0-9] | cut -d '/' -f 1 | tr '\n' ',' | sed s/,$//)
-	echo ""
+	echo -e "${BLUE}"
 	echo "***************************************************"
 	echo "*  UDP Port Scanning Top 1000: $1"
 	echo "***************************************************"
-	echo ""
+	echo -e "${GREEN}"
 	echo "[*] Running a UDP scan against top 1000 ports"
-	echo ""
-	output=$(sudo nmap -sU --top-ports=1000 --min-rate=1000 -T4 $ip -Pn)
+	echo -e "${NC}"
+	output=$(sudo nmap -sU --top-ports=1000 --min-rate=$rate -T5 $ip -Pn)
 	echo "$output"
 	udpports=$(echo "$output" | grep open | grep ^[0-9] | cut -d '/' -f 1 | tr '\n' ',' | sed s/,$//)
-	echo ""
+	echo -e "${BLUE}"
 	echo "**************************************"
 	echo "   Service Scanning $1"
 	echo "**************************************"
-	echo ""
+	echo -e "${NC}"
 	if [[ ! -z "tcpports" ]]
 	then
+		echo -e "${GREEN}"
 		echo "[*] Running TCP Service Scan: $tcpports"
-		output=$(sudo nmap -O -sC -sV -p $tcpports $ip -Pn)
+		echo -e "${NC}"
+		output=$(sudo nmap -O -sC -sV --min-rate=$rate -p $tcpports $ip -Pn)
 		echo "$output"
 		echo ""
 	fi
 	if [[ ! -z "$udpports" ]]
 	then
+		echo -e "${GREEN}"
 		echo "[*] Running UDP Service Scan: $udpports"
-		output=$(sudo nmap -O -sC -sV -p $udpports $ip -Pn)
+		echo -e "${NC}"
+		output=$(sudo nmap -O -sC -sV --min-rate=$rate -p $udpports $ip -Pn)
 		echo "$output"
 		echo ""
 	fi
 }
-ip=$1
 if [[ "$ip" == *"-"* ]]
 then
-	echo [*] Scanning an Ip Range
+	echo -e "${BLUE}[*] Scanning an IP Range${NC}"
 	var1=$(echo "$ip" | cut -f1 -d-)
 	#echo $var1
 	var2=$(echo "$ip" | cut -f2 -d-)
 	#echo $var2
 	ip_list=$(prips $var1 $var2)
-	echo [+] Range: $ip_list
+	echo -e "${BLUE}[+] Range: $ip_list${NC}"
 	for ip in $ip_list
 	do
-		echo [*] Save Location: $ip.nmapsave
+		echo -e "${BLUE}[*] Save Location: $ip.nmapsave${NC}"
 		scan $ip | tee $ip.nmapsave
 	done
 else

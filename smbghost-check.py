@@ -1,3 +1,5 @@
+#https://raw.githubusercontent.com/Barriuso/SMBGhost_AutomateExploitation/master/Scanner/scanner.py
+#python smbghost-check.py 10.10.10.228 445
 import socket
 import struct
 import hexdump

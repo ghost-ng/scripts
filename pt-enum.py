@@ -65,6 +65,7 @@ def main():
 	group1.add_argument('--enum-proc',action='store', dest='procs',type=str,help='<start proc#>,<end proc#> : 1,9000',required=False,default=None)
 	parser.add_argument('--users',action='store', dest='users',nargs="+",help='root user1 user2',default='root')
 	parser.add_argument('-q','--quiet',action='store_true', dest='quiet',help='supress messages',default=False)
+	group1.add_argument('-i', action='store_true', dest='interactive',help='run in interactive mode',default=False)
 
 	args = parser.parse_args()
 	if args.users == "root":
@@ -74,6 +75,31 @@ def main():
 
 	if args.container is not None:
 		container = args.container.split(",")
+
+	if args.interactive:
+		cmd = ''
+		while cmd.upper() != "EXIT":
+			cmd = input("file> ")
+			try:
+				html = get_request(args.path+cmd.rstrip(),args.host)
+				if html:
+					url = args.host+args.path+cmd.rstrip()
+					if args.not_found is not None:
+						if args.not_found not in html:
+							if args.quiet is False:
+								print("{}[+]: {} {}".format(BOLD,url,RSTCOLORS))
+							parse(args.container,html)
+					else:
+						if args.quiet is False:
+							print("{}[+]: {} {}".format(BOLD,url,RSTCOLORS))
+						if args.container is not None:
+							parse(args.container,html)
+
+						else:
+							print(html)
+			except:
+				break
+		sys.exit()
 
 	if args.list is not None:
 		filename = args.list

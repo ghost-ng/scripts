@@ -31,11 +31,12 @@ ${NC}"
 
 
 function help_menu {
+    print_banner
     echo -e "usage: 
     $0 -t <target> -p <port> [-n [nocolors]]
     $0 -t <target> -p <port> [-U] <username> [-P] <password>
     ${RED}Mandatory: -t <target>${NC}"
-    print_banner
+    
 
     exit 1
 }
@@ -125,7 +126,7 @@ echo -e "${RED}
  =============================
 ${NC}" | tee -a $savefile
 
-cmd="nmap $target -p $port -Pn -sV --script=smb-os-discovery,smb-vuln*"
+cmd="nmap $target -p $port -Pn -sV --script=smb-os-discovery,smb-vuln*,smb-protocols,smb2-security-mode"
 print_cmd "$cmd"
 cmd="$cmd | tee -a $savefile"
 eval "$cmd"
@@ -141,30 +142,36 @@ ${NC}" | tee -a $savefile
 if [[ $username = "" && $password = "" ]]
 then
 
-    cmd="crackmapexec smb --port $port $target --rid-brute -u '' -p ''"
+    cmd="crackmapexec smb --port $port $target --rid-brute -u '' -p '' --shares 2>/dev/null" 
     print_cmd "$cmd"
     cmd="$cmd | tee -a $savefile"
     eval "$cmd"
 
-    cmd="crackmapexec smb --port $port $target --rid-brute -u Guest -p ''"
+    cmd="crackmapexec smb --port $port $target --rid-brute -u Guest -p '' --shares 2>/dev/null"
     print_cmd "$cmd"
     cmd="$cmd | tee -a $savefile"
     eval "$cmd"
 
-    cmd="crackmapexec smb --port $port $target --rid-brute -u Anonymous -p ''"
+    cmd="crackmapexec smb --port $port $target --rid-brute -u Anonymous -p '' --shares 2>/dev/null"
     print_cmd "$cmd"
     cmd="$cmd | tee -a $savefile"
     eval "$cmd"
+
+    #cmd="crackmapexec smb --port $port $target --rid-brute -u /usr/share/seclists/Usernames/top-usernames-shortlist.txt -p /usr/share/seclists/Passwords/darkweb2017-top10.txt --shares --spider '*'"
+    #print_cmd "$cmd"
+    #cmd="$cmd | tee -a $savefile"
+    #eval "$cmd"
+
 
 fi
 
 if [[ ! $username = "" ]] || [[ ! $password = "" ]]
 then
-    cmd="crackmapexec smb --port $port $target --rid-brute -u $username -p '$password' --shares --spider '*'"
-print_cmd "$cmd"
-cmd="$cmd | tee -a $savefile"
-#echo "$cmd"
-eval "$cmd"
+    cmd="crackmapexec smb --port $port $target --rid-brute -u $username -p '$password' --shares --spider '*' 2>/dev/null"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    #echo "$cmd"
+    eval "$cmd"
 fi
 
 ##ENUM4LINUX.PY
@@ -178,22 +185,22 @@ ${NC}" | tee -a $savefile
 if [[ $username = "" && $password = "" ]]
 then
 
-    cmd="enum4linux-ng.py -vAR $target"
+    cmd="enum4linux-ng.py -AR $target"
     print_cmd "$cmd"
     cmd="$cmd | tee -a $savefile"
     eval "$cmd"
 
-    cmd="enum4linux-ng.py -vAR $target -u '' -p ''"
+    cmd="enum4linux-ng.py -AR $target -u '' -p ''"
     print_cmd "$cmd"
     cmd="$cmd | tee -a $savefile"
     eval "$cmd"
 
-    cmd="enum4linux-ng.py -vAR $target -u Guest -p ''"
+    cmd="enum4linux-ng.py -AR $target -u Guest -p ''"
     print_cmd "$cmd"
     cmd="$cmd | tee -a $savefile"
     eval "$cmd"
 
-    cmd="enum4linux-ng.py -vAR $target -u Anonymous -p ''"
+    cmd="enum4linux-ng.py -AR $target -u Anonymous -p ''"
     print_cmd "$cmd"
     cmd="$cmd | tee -a $savefile"
     eval "$cmd"
@@ -203,11 +210,10 @@ fi
 
 if [[ ! $username = "" ]] || [[ ! $password = "" ]]
 then
-    cmd="enum4linux-ng.py -vAR $target -u $username -p '$password'"
-print_cmd "$cmd"
-cmd="$cmd | tee -a $savefile"
-#echo $cmd
-eval "$cmd"
+    cmd="enum4linux-ng.py -AR $target -u $username -p '$password'"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
 fi
 
 ##SMBMAP
@@ -221,16 +227,16 @@ ${NC}" | tee -a $savefile
 if [[ $username = "" && $password = "" ]]
 then
 
-    cmd="smbmap -H $target -u 'Anonymous' -p ''"
+    cmd="smbmap -P $port -H $target -u 'Anonymous' -p ''"
     print_cmd "$cmd"
     cmd="$cmd | tee -a $savefile"
     eval "$cmd"
 
-    cmd="smbmap -H $target -u 'Guest' -p ''"
+    cmd="smbmap -P $port -H $target -u 'Guest' -p ''"
     print_cmd "$cmd"
     eval "$cmd"
 
-    cmd="smbmap -H $target -u '' -p ''"
+    cmd="smbmap -P $port -H $target -u '' -p ''"
     print_cmd "$cmd"
     cmd="$cmd | tee -a $savefile"
     eval "$cmd"
@@ -239,10 +245,10 @@ fi
 
 if [[ ! $username = "" ]] || [[ ! $password = "" ]]
 then
-    cmd="smbmap -H $target -u $username -p '$password'"
-print_cmd "$cmd"
-cmd="$cmd | tee -a $savefile"
-eval "$cmd"
+    cmd="smbmap -P $port -H $target -u $username -p '$password' -R"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
 fi
 
 echo -e "${RED}
@@ -298,7 +304,7 @@ fi
 if [[ ! $username = "" || ! $password = "" ]]
 then
     cmd="echo '$password' | smbclient -L $target --port=$port --option='client min protocol=LANMAN1' -U $username"
-print_cmd "$cmd"
-cmd="$cmd | tee -a $savefile"
-eval "$cmd"
+    print_cmd "$cmd"
+    cmd="$cmd | tee -a $savefile"
+    eval "$cmd"
 fi

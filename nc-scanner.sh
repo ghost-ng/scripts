@@ -98,7 +98,7 @@ scan()
 		s=$1
 		p=$2
 		wt=$(seq 10 60 | sort -R | head -n1)
-		if nc -w $wt -zv $s $f-$t 2>&1 | egrep -q -i "connected|succeeded";then
+		if nc -zvw $wt $s $p 2>&1 | egrep -q -i "connected|succeeded";then
 			echo "[+] Success! $s:$p"
 		else
 			echo "[-] Fail $s:$p"
@@ -110,7 +110,7 @@ main()
 {
 	parse $@
 	checkArgs $@
-	printf "%-15s\t%-5s\t%-15s\n" "Server" "Port" "Protocol"
+
 	if [[ ${#ports[@]} -gt 0 ]]
 	then
 		for i in ${ports[@]}

@@ -1,0 +1,159 @@
+#!/bin/python3
+import argparse, sys
+from os.path import exists, isdir, join, basename, abspath, dirname
+from os import system
+import shlex
+
+#result = os.system('color')
+BLUE = '\033[34m'
+GREEN = '\033[32m'
+RED = '\033[31m'
+YELLOW = '\033[33m'
+WHITE = '\033[0m'
+RSTCOLORS = '\033[0m'
+ERASE_LINE = '\x1b[2K' 
+
+
+parser = argparse.ArgumentParser(description='Wrapper around SCP using a control socket')
+parser.add_argument('-s', help='Control Socket',dest='socket', required=True)
+parser.add_argument('-d', help='Download Directory',dest='download_dir', required=True, default="./")
+parser.add_argument('-u', help='Upload Directory',dest='upload_dir', required=True, default="./")
+
+args = parser.parse_args()
+
+UPLOAD_DIR = abspath(args.upload_dir)
+DOWNLOAD_DIR = abspath(args.download_dir)
+TARGET_DIR = ""
+
+AVAIL_CONFIGS = ["upload-from","download-from","download-to"]
+VERSION = 1.0
+
+
+def print_info(msg):
+    print(BLUE + "[*] " + msg + RSTCOLORS)
+
+def print_good(msg):
+    print(GREEN + "[+] " + msg + RSTCOLORS)
+
+def print_bad(msg):
+    print(RED + "[-] " + msg + RSTCOLORS)
+
+def doesFileExist(file):
+    return exists(file)
+
+def doesDirExist(file):
+    return isdir(file)
+
+def printSettings():
+    settings = YELLOW + f"\nUpload From: {UPLOAD_DIR}\nDownload To: {DOWNLOAD_DIR}\nDownload From: {TARGET_DIR}\n" + RSTCOLORS
+    print(settings)
+
+def configSetting(setting):
+    global UPLOAD_DIR
+    global DOWNLOAD_DIR
+    global TARGET_DIR
+    s = setting.split("=")
+    if s[0] == "download-to":
+        if doesDirExist(dirname(s[1])):
+            DOWNLOAD_DIR = s[1]
+            print_good("Updated Settings")
+        else:
+            print_bad("Target Directory Does not Exist")
+    elif s[0] == "upload-from":
+        if doesDirExist(dirname(s[1])):
+            UPLOAD_DIR = s[1]
+            print_good("Updated Settings")
+        else:
+            print_bad("Target Directory Does not Exist")
+    if s[0] == "download-from":
+        print_good("Updated Settings")
+        TARGET_DIR = s[1]
+
+
+def dowloadFile(srcFilename, destFilename):
+    
+
+    cmd = f"scp -o ControlPath={args.socket} @:{srcFilename} {destFilename}"
+
+    print_info(f"{srcFilename} --> {destFilename}")
+    print_info("SCP Status:")
+    system(cmd)
+
+def uploadFile(srcFilename, destFilename):
+
+    cmd = f" scp -o ControlPath={args.socket} {srcFilename} @:{destFilename}"
+
+    print_info(cmd)
+    print_info("SCP Status:")
+    system(cmd)
+
+
+def main():
+
+    if not doesDirExist(UPLOAD_DIR):
+        print_bad("Upload Directory Does not Exist!")
+        sys.exit()
+    if not doesDirExist(DOWNLOAD_DIR):
+        print_bad("Download Directory Does not Exist!")
+        sys.exit()
+    if not doesFileExist(args.socket):
+        print_bad("Socket Control File Does not Exist!")
+        sys.exit()
+
+    userInput = ""
+
+    while True:
+        printSettings()
+        userInput = input(RED+"scp> "+RSTCOLORS)
+        if userInput == "exit" or userInput == "quit":
+            sys.exit()
+        else:
+            if "=" in userInput:
+                if userInput.split("=")[0] in AVAIL_CONFIGS:
+                    print("changing configs")
+                    configSetting(userInput)
+            elif "version" == userInput:
+                print_info(str(VERSION))
+            elif userInput.startswith("get "):
+                cmd = shlex.split(userInput)    #https://stackoverflow.com/questions/79968/split-a-string-by-spaces-preserving-quoted-substrings-in-python
+                if len(cmd) == 2:
+                    src = cmd[1]
+                    dest = join(DOWNLOAD_DIR,basename(src))
+                elif len(cmd) == 3:
+                    src = cmd[1]
+                    if "/" in cmd[2]:
+                        dest = cmd[2]
+                    else:
+                        dest = join(DOWNLOAD_DIR,basename(cmd[2]))
+                #print(dest)
+                if doesDirExist(dirname(dest)):
+                    if TARGET_DIR != "":
+                        src = join(TARGET_DIR,src)
+                    dowloadFile(src,dest)
+                else:
+                    print_bad("Download Directory Does Not Exist!")
+
+
+            elif userInput.startswith("put "):
+                cmd = shlex.split(userInput)    #https://stackoverflow.com/questions/79968/split-a-string-by-spaces-preserving-quoted-substrings-in-python
+                if len(cmd) == 2:
+                    src = cmd[1]
+                    dest = join(UPLOAD_DIR,basename(src))
+                elif len(cmd) == 3:
+                    src = cmd[1]
+                    if "/" in cmd[2]:
+                        dest = cmd[2]
+                    else:
+                        dest = join(UPLOAD_DIR,basename(cmd[2]))
+                #print(dest)
+                if doesFileExist(src):
+                    if TARGET_DIR != "":
+                        src = join(TARGET_DIR,dest)
+                    uploadFile(src,dest)
+                else:
+                    print_bad("Source File Does Not Exist!")
+
+try:
+    main()
+except KeyboardInterrupt:
+    print("^punt!")

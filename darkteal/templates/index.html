@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" type="image/x-icon">
+    <script src="{{ url_for('static', filename='js/jquery-3.5.1.slim.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/popper.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
+
+    <title>DARKTEAL</title>
+    <style>
+        .searchingOverlay {
+            position: absolute; /* Position the overlay absolutely within the sidebar */
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%; /* Cover the full width */
+            height: 100%; /* Cover the full height */
+            background-color: rgba(102, 102, 102, 0.7); /* Example: semi-transparent black */
+            z-index: 1000; /* Ensure it's above other elements */
+            display: flex;
+            align-items: center; /* Vertical centering */
+            justify-content: center; /* Horizontal centering */
+        }
+        #current-path {
+            text-align: center; 
+            font-size: 7px; 
+            background-color: yellow;
+        }
+        label {
+            display: inline-block;
+            margin-bottom: .1rem;
+        }
+        body {
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            font-size: .7rem;
+        }
+        .resize-handle {
+            cursor: ew-resize; /* horizontal resize cursor */
+            width: 60px;
+            height: 30px;
+            margin: 5px auto;
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .icon-left,
+        .icon-right {
+            margin-bottom: 10px;
+        }
+
+        .icon-left::before {
+            content: "←"; /* Unicode left arrow */
+            font-size: 2em; /* Adjust the size as needed */
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .icon-right::before {
+            content: "→"; /* Unicode right arrow */
+            font-size: 2em; /* Adjust the size as needed */
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+
+        .sidebar {
+            background-color: #f4f4f4;
+            min-width: 100px; /* Minimum width */
+            max-width: 80%; /* Maximum width */
+            overflow: auto;
+            padding: 6px;
+            position: relative;
+        }
+        .main-content {
+            flex-grow: 1; /* This ensures the main content takes up the remaining space */
+            background-color: #ddd;
+            padding-left: 5px;
+            padding-right: 5px;
+        }
+
+        .main {
+            flex: 2;
+            overflow: auto;
+            position: relative;
+        }
+
+        .content-panel{
+            padding: 5px;
+        }
+
+        .form-group {
+            width: 100%;
+            margin-bottom: 5px;
+            padding-bottom: 5px;
+        }
+
+        .table thead th {
+            position: relative;
+            text-align: center;
+            background: #b5b5b5;
+            color: black;
+            transition: .5s;
+            cursor: pointer;
+        }
+
+        .table thead th::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffee10;
+            transition: .5s;
+            z-index: -1;
+        }
+
+        .table thead th:hover {
+            color: #ffee10;
+            box-shadow: 0 0 5px #ffee10;
+            text-shadow: 0 0 5px #ffee10;
+        }
+
+        .table thead th:hover::before {
+            box-shadow: 0 0 15px #ffee10;
+        }
+
+        .arrow {
+            display: inline-block;
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            vertical-align: middle;
+        }
+
+        .arrow.desc {
+            border-bottom: 5px solid black;
+        }
+
+        .arrow.asc {
+            border-top: 5px solid black;
+        }
+
+        mark, .focused-match {
+            background-color: yellow;
+            color: black;
+        }
+
+        .focused-match {
+            border: 1px solid #f57c00;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+
+        table.file-list {
+            font-size: 8px;
+        }
+
+        .highlighted-row {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+
+        .form-control, input[type="text"], .input-group .btn {
+            font-size: 10px;
+            padding: 4px 9px;
+        }
+
+
+        #searchingOverlay {
+            z-index: 9999;
+        }
+
+        .search-term {
+            margin: 0 20px;
+            font-weight: bold;
+        }
+
+        .toolbar {
+            position: sticky;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #f5f5f5;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .toolbar .btn {
+            margin-right: 10px;
+            font-size: 10px;
+            padding: 1px 6px;
+        }
+
+        .toolbar .btn:last-child {
+            margin-right: 0;
+        }
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #fff; /* Adjust color as needed */
+            background-color: rgba(0, 0, 0, 0.5); /* Optional: give it a background */
+            padding: 0px 5px;
+        }
+
+        .close-btn:hover {
+            background-color: rgba(0, 0, 0, 0.7); /* Darken the background on hover */
+        }
+
+        .folder-path {
+            font-size: 7px;
+            margin-top: -2.1em;
+            margin-bottom: 1em;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar" style="width: {{ session['sidebar_width'] }};">
+
+        <div class="resize-handle">
+            <div class="resize-handle">
+            <div class="icon-left"></div>
+            <div class="icon-right"></div>
+        </div>
+        </div>
+        <!-- Form for Searching -->
+        <div class="input-group">
+            <form method="GET" action="{{ url_for('search') }}" class="form-group">
+                <div class="form-group">
+                    <label for="search_term" class="">Search Through Files:</label>
+                    <div class="input-group">
+                        <input id="searchTerm" type="text" name="search_term" class="form-control form-control-sm" value="{{ search_term }}" required>
+                        <input type="hidden" name="folder_path" value="{{ folder_path }}">
+                        <div class="input-group-append">
+                            <button type="submit" onclick="showOverlay()" class="btn btn-primary btn-sm">Search</button>
+                        </div>
+                    </div>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" value="1" id="isRegex" name="is_regex">
+                        <label class="form-check-label" for="isRegex">
+                            Regex Search
+                        </label>
+                    </div>
+                </div>
+
+            </form>
+            <!-- Searching Overlay -->
+            <div id="searchingOverlay" class="searchingOverlay" style="display:none;">
+                <span class="close-btn" onclick="hideOverlay()">×</span>
+                <h1>Searching...</h1>
+            </div>
+        </div>
+
+            <!-- Form for Changing Folder -->
+        <div class="input-group">
+            <form method="GET" action="/change_folder" class="form-group">
+                <div class="form-group">
+                    <label for="folder_path" class="">Folder Path:</label>
+                    <div class="input-group">
+                        <input type="text" name="folder_path" class="form-control form-control-sm" value="{{ folder_path }}" required>
+                        <div class="input-group-append">
+                            <button type="submit" class="btn btn-primary btn-sm">Load</button>
+                            <button type="submit" name="action" value="parent" class="btn btn-secondary btn-sm">Parent Directory</button>
+                        </div>
+                        <!-- Display the current folder path -->
+                    </div>
+                </div>
+            </form>
+        </div>
+        <!-- Display the current folder path outside of the input group -->
+        <div class="folder-path">
+            {{ folder_path }}
+        </div>
+        <!-- Form for Filtering Filenames -->
+        <div class="input-group">
+            <label for="filter_term">File Name Filter:</label>
+            <div class="input-group">
+                <input type="text" id="filter_term" class="form-control form-control-sm">
+                <div class="input-group-append">
+                    <button type="button" onclick="filterFilenames()" class="btn btn-primary btn-sm">Filter</button>
+                </div>
+            </div>
+        </div>
+        <!-- File List Table -->
+        <table class="table table-sm file-list">
+
+            <thead>
+                <tr>
+                    <th onclick="sortTable('type')">Type <span class="arrow" data-column="type"></span></th>
+                    <th onclick="sortTable('name')">Name <span class="arrow" data-column="name"></span></th>
+                    <th onclick="sortTable('modified')">Last Modified <span class="arrow" data-column="modified"></span></th>
+                    <th onclick="sortTable('size')">Size <span class="arrow" data-column="size"></span></th>
+                    <th>Subject</th>
+                </tr>
+            </thead>
+
+
+            <tbody class="file-list">
+                {% for file in file_list %}
+                    <tr class="file_row" data-filename="{{ file.name }}">
+                        <td class="data-type">{{ file.type }}</td>
+                        <td class="data-filename">
+                            {% if file.type == 'Directory' %}
+                            <a href="{{ url_for('change_folder', folder_path=file.path) }}/">{{ file.name }}</a>
+                        {% else %}
+                            <!-- Handle files differently if needed -->
+                            <a href="{{ url_for('index', folder_path=folder_path, clicked_item=file.path) }}">{{ file.name }}</a>
+                        {% endif %}
+                        </td>
+                        <td class="data-modified">{{ file.modified|datetimeformat }}</td>
+                        <td class="data-size">{{ file.size }}</td>
+                        <td class="data-subject">{{ file.subject }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+            
+    </div>
+    <div class="main main-content">
+        <div class="content-panel" id="content-panel">
+            <div id="current-path">
+                {{ clicked_item }}
+            </div>
+            <div class="content-start">{% if is_html %}{{ file_content|safe }}{% else %}<pre>{{ file_content }}</pre>{% endif %}</div>
+        </div>
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="toolbar-div">
+                <div class="btn-group">
+                    <a class="btn btn-primary btn-sm" href="{{ url_for('navigate_file', direction='prev', current_file=clicked_item) }}" class="btn btn-primary">←</a>
+                    <a class="btn btn-primary btn-sm" href="{{ url_for('navigate_file', direction='next', current_file=clicked_item) }}" class="btn btn-primary">→</a>
+                </div>
+                <span class="search-term">{{ session['search_term'] }}</span>
+                <div class="btn-group">
+                    <button id="find-prev" class="btn btn-primary btn-sm" id="findPrev">Find Prev</button>
+                    <button id="find-next"  class="btn btn-primary btn-sm" id="findNext">Find Next</button>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-primary btn-sm" id="expandHeaders" onclick="toggleItems()">Toggle Headers</button>
+                </div>
+            </div>
+    </div>
+    
+    <script>
+        function toggleItems() {
+            const items = document.querySelectorAll(".content-start li");
+            for (let i = 0; i < 10; i++) {
+                if (items[i]) {
+                    if (items[i].style.display === "none") {
+                        items[i].style.display = "list-item";
+                    } else {
+                        items[i].style.display = "none";
+                    }
+                }
+            }
+        }
+
+        // Initially hide items 5-10
+        window.onload = toggleItems()
+
+        const sidebar = document.querySelector('.sidebar');
+        const handle = document.querySelector('.resize-handle');
+
+        let isResizing = false;
+        let startX;
+
+        handle.addEventListener('mousedown', (event) => {
+            isResizing = true;
+            startX = event.clientX;
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', () => {
+                isResizing = false;
+                document.removeEventListener('mousemove', handleMouseMove);
+            });
+        });
+
+        function handleMouseMove(event) {
+            if (!isResizing) return;
+            const dx = event.clientX - startX;
+            sidebar.style.width = `${sidebar.offsetWidth + dx}px`;
+            startX = event.clientX;
+        }
+
+
+        let sortOrder = {
+            type: 'asc',
+            name: 'asc',
+            modified: 'asc',
+            size: 'asc'
+        };
+
+
+        function hideOverlay() {
+            document.getElementById('searchingOverlay').style.display = 'none';
+        }
+
+        function sortTable(column) {
+            
+            const fileList = document.querySelector('table.file-list tbody');
+            const files = Array.from(fileList.children);
+
+            if (column === 'name') {
+                //console.log("Sorting by:", column);
+                if (sortOrder.name === 'asc') {
+                    files.sort((a, b) => a.querySelector('.data-filename').textContent.localeCompare(b.querySelector('.data-filename').textContent));
+                    sortOrder.name = 'desc';
+                } else {
+                    files.sort((a, b) => b.querySelector('.data-filename').textContent.localeCompare(a.querySelector('.data-filename').textContent));
+                    sortOrder.name = 'asc';
+                }
+            } else if (column === 'modified') {
+                //console.log("Sorting by:", column);
+                
+                // Log initial dates for debugging
+                //console.log("Initial Dates:", files.map(file => file.querySelector('.data-modified').textContent));
+
+                files.sort((a, b) => {
+                    const dateA = parseDate(a.querySelector('.data-modified').textContent);
+                    const dateB = parseDate(b.querySelector('.data-modified').textContent);
+
+                    if (sortOrder.modified === 'asc') {
+                        return dateA - dateB;
+                    } else {
+                        return dateB - dateA;
+                    }
+                });
+
+                // Toggle the sortOrder for the next time
+                sortOrder.modified = (sortOrder.modified === 'asc') ? 'desc' : 'asc';
+
+                //console.log(files);
+            }  else if (column === 'size') {
+                //console.log("Sorting by:", column);
+                if (sortOrder.size === 'asc') {
+                    files.sort((a, b) => {
+                        const sizeA = a.querySelector('.data-size') ? getSizeInBytes(a.querySelector('.data-size').textContent) : 0;
+                        const sizeB = b.querySelector('.data-size') ? getSizeInBytes(b.querySelector('.data-size').textContent) : 0;
+                        return sizeA - sizeB;
+                    });
+                    sortOrder.size = 'desc';
+                } else {
+                    files.sort((a, b) => {
+                        const sizeA = a.querySelector('.data-size') ? getSizeInBytes(a.querySelector('.data-size').textContent) : 0;
+                        const sizeB = b.querySelector('.data-size') ? getSizeInBytes(b.querySelector('.data-size').textContent) : 0;
+                        return sizeB - sizeA;
+                    });
+                    sortOrder.size = 'asc';
+                }
+            }  else if (column === 'type') {
+                //console.log("Sorting by:", column);
+                if (sortOrder.type === 'asc') {
+                    files.sort((a, b) => a.querySelector('.data-type').textContent.localeCompare(b.querySelector('.data-type').textContent));
+                    sortOrder.type = 'desc';
+                } else {
+                    files.sort((a, b) => b.querySelector('.data-type').textContent.localeCompare(a.querySelector('.data-type').textContent));
+                    sortOrder.type = 'asc';
+                }
+            }
+
+            // Update arrow direction
+            document.querySelectorAll('.arrow').forEach(arrow => {
+                arrow.classList.remove('asc', 'desc'); // Remove both classes
+                if (arrow.getAttribute('data-column') === column) {
+                    arrow.classList.add(sortOrder[column]); // Add the current sort order class
+                }
+            });
+
+            // Clear the file list and append sorted items
+            fileList.innerHTML = '';
+            files.forEach(file => fileList.appendChild(file));
+        }
+        function parseDate(dateStr) {
+            const [datePart, timePart] = dateStr.split(' ');
+            const [year, month, day] = datePart.split('-').map(Number);
+            const [hour, minute, second] = timePart.split(':').map(Number);
+            return new Date(year, month - 1, day, hour, minute, second);
+        }
+        function getSizeInBytes(sizeStr) {
+            if (typeof sizeStr !== 'string' || !sizeStr.trim()) return 0;  // Return 0 if sizeStr is not a string, empty, or just whitespace
+
+            const units = {
+                B: 1,
+                KB: 1e3,
+                MB: 1e6,
+                GB: 1e9,
+                TB: 1e12
+            };
+
+            const unitMatch = sizeStr.match(/[A-Za-z]+/);
+            const valueMatch = sizeStr.match(/[\d.]+/);
+
+            if (!unitMatch || !valueMatch) return 0;  // Return 0 if there's no match
+
+            const unit = unitMatch[0];
+            const value = parseFloat(valueMatch[0]);
+            return value * (units[unit] || 1);
+            }
+
+
+        function filterFilenames() {
+            var filterTerm = document.getElementById('filter_term').value;
+            var regex = new RegExp(filterTerm, 'i');
+            var fileRows = document.querySelectorAll('.file_row');
+            fileRows.forEach(function(row) {
+                var filename = row.getAttribute('data-filename');
+                if (regex.test(filename)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+        function highlightMatches() {
+            // Get the regex pattern from the .search-term class
+            let searchTerm = document.querySelector('.search-term').textContent;
+            if (!searchTerm.trim()) {
+                return;
+            }
+            let regex = new RegExp(searchTerm, 'gi');
+
+            // Get the content from the content panel
+            let contentPanel = document.getElementById('content-panel');
+            let content = contentPanel.innerHTML;  
+
+            // Replace and highlight all matches
+            content = content.replace(regex, function(match) {
+                return `<mark>${match}</mark>`;
+            });
+
+            // Update the content panel with the highlighted content
+            contentPanel.innerHTML = content;
+        }
+
+        // Call the function to highlight matches
+        highlightMatches();
+
+        function showOverlay() {
+            // Assuming you have an input with the id "searchTextbox" and an overlay with the id "searchingOverlay"
+            var searchText = document.getElementById('searchTerm').value.trim();
+            var overlay = document.getElementById('searchingOverlay');
+
+            if (searchText !== "") {
+                // Only show the overlay if there's text in the search textbox
+                overlay.style.display = 'block';
+            }
+        }
+
+        window.onload = function() {
+            const searchTerm = document.getElementById('searchTerm').value;
+
+            // Check if searchTerm is null, empty, or just whitespace
+            if (!searchTerm || !searchTerm.trim()) {
+                return; // Exit the function early
+            }
+
+            const regex = new RegExp(searchTerm, 'gi');
+            const contentDiv = document.querySelector('.main div');
+
+            // Ensure contentDiv exists before attempting to modify its innerHTML
+            if (contentDiv) {
+                contentDiv.innerHTML = contentDiv.innerHTML.replace(regex, function(match) {
+                    return `<mark>${match}</mark>`;
+                });
+            }
+        }
+
+    let currentHighlightIndex = 0;
+
+    function scrollToHighlight(direction) {
+        // Get all highlighted matches
+        let highlights = document.querySelectorAll('mark');
+        if (highlights.length === 0) return;
+
+        // Remove the focused-match class from the previous match
+        if (highlights[currentHighlightIndex]) {
+            highlights[currentHighlightIndex].classList.remove('focused-match');
+        }
+
+        // Determine the next highlight to scroll to based on the direction
+        if (direction === 'next') {
+            currentHighlightIndex++;
+            if (currentHighlightIndex >= highlights.length) {
+                currentHighlightIndex = 0; // Wrap around to the first match
+            }
+        } else if (direction === 'prev') {
+            currentHighlightIndex--;
+            if (currentHighlightIndex < 0) {
+                currentHighlightIndex = highlights.length - 1; // Wrap around to the last match
+            }
+        }
+        // Add the focused-match class to the current match
+        highlights[currentHighlightIndex].classList.add('focused-match');
+
+        // Scroll to the selected highlight
+        highlights[currentHighlightIndex].scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+        });
+    }
+
+    // Add event listeners to the "Find Prev" and "Find Next" buttons
+    document.getElementById('find-prev').addEventListener('click', function() {
+        scrollToHighlight('prev');
+    });
+
+    document.getElementById('find-next').addEventListener('click', function() {
+        scrollToHighlight('next');
+    });
+    function highlightCurrentFileRow() {
+        // Get the absolute path from the div with id="current-path"
+        const absolutePath = document.getElementById('current-path').textContent.trim();
+
+        // Extract the file name from the absolute path
+        const currentFileName = absolutePath.split('/').pop();
+
+        // Remove any existing highlighted rows
+        document.querySelectorAll('.file_row.highlighted-row').forEach(function(row) {
+            row.classList.remove('highlighted-row');
+        });
+
+        // Highlight the row corresponding to the current file
+        const currentFileRow = document.querySelector(`.file_row[data-filename="${currentFileName}"]`);
+        if (currentFileRow) {
+            currentFileRow.classList.add('highlighted-row');
+        }
+    }
+
+    highlightCurrentFileRow();
+
+    let resized = false;
+
+    // Assuming you have a resize handle for the sidebar
+    $('.resize-handle').on('mousedown', function() {
+        resized = true;
+    });
+
+    $(document).on('mouseup', function() {
+        if (isResizing) {
+            resized = false;  // Reset the flag
+            const width = $('.sidebar').width() + 'px';
+            $.post('/set_sidebar_width', { width: width });
+        }
+    });
+
+
+    </script>
+</body>
+</html>

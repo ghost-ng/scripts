@@ -1,0 +1,17 @@
+#!/bin/bash
+# Usage: ./ncscan.sh <host> <start_port> <end_port> <threads>
+
+if [ "$#" -ne 4 ]; then
+  echo "Usage: $0 <host> <start_port> <end_port> <threads>"
+  exit 1
+fi
+
+TARGET=$1
+START_PORT=$2
+END_PORT=$3
+THREADS=$4
+
+echo "[*] Scanning $TARGET ports $START_PORT-$END_PORT with $THREADS threads..."
+
+seq "$START_PORT" "$END_PORT" | xargs -n1 -P "$THREADS" -I{} bash -c \
+"nc -z -v -w 1 $TARGET {} 2>&1 | grep -E 'succeeded|open' && echo 'Port {} open' || true"

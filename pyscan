@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+
+import argparse
+import socket
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+parser = argparse.ArgumentParser(description="Multithreaded TCP port scanner")
+parser.add_argument("host", help="Target host to scan")
+parser.add_argument("start_port", type=int, help="Start port")
+parser.add_argument("end_port", type=int, help="End port")
+parser.add_argument("threads", type=int, help="Number of threads")
+args = parser.parse_args()
+
+target = args.host
+start_port = args.start_port
+end_port = args.end_port
+threads = args.threads
+
+total_ports = end_port - start_port + 1
+open_ports = []
+progress_lock = threading.Lock()
+open_ports_lock = threading.Lock()
+count = 0
+stop_event = threading.Event()
+
+def scan_port(port):
+    global count
+    if stop_event.is_set():
+        return
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(1)
+    result = s.connect_ex((target, port))
+    if result == 0:
+        with open_ports_lock:
+            open_ports.append(port)
+        print(f"\nPort {port} open")
+    s.close()
+    with progress_lock:
+        count += 1
+
+def monitor():
+    last_percent = -1
+    while not stop_event.is_set():
+        time.sleep(0.5)
+        with progress_lock:
+            percent = min(100, (count * 100) // total_ports)
+        if percent != last_percent:
+            print(f"[{percent}%] Scanning...", end="\r")
+            last_percent = percent
+        if count >= total_ports:
+            break
+
+print(f"[*] Scanning {target} ports {start_port}-{end_port} with {threads} threads...")
+
+monitor_thread = threading.Thread(target=monitor)
+monitor_thread.start()
+
+try:
+    with ThreadPoolExecutor(max_workers=threads) as executor:
+        futures = [executor.submit(scan_port, port) for port in range(start_port, end_port + 1)]
+        for future in as_completed(futures):
+            if stop_event.is_set():
+                break
+except KeyboardInterrupt:
+    stop_event.set()
+    print("\n[!] Keyboard interrupt detected, stopping scan...")
+
+monitor_thread.join()
+print("\n[+] Scan complete.")
+
+if open_ports:
+    print("\n[+] Open ports summary:")
+    for port in sorted(set(open_ports)):
+        print(f"Port {port} open")
+else:
+    print("\nNo open ports found.")
+

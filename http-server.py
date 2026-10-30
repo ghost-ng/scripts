@@ -193,11 +193,24 @@ class MemorySSLHTTPServer(http.server.HTTPServer):
         super().__init__(server_address, RequestHandlerClass)
 
     def get_request(self):
-        raw_socket, client_address = self.socket.accept()
-        ssl_connection = SSL.Connection(self._ssl_context, raw_socket)
-        ssl_connection.set_accept_state()
-        ssl_connection.do_handshake()
-        return SSLConnectionProxy(ssl_connection), client_address
+        while True:
+            raw_socket, client_address = self.socket.accept()
+            ssl_connection = SSL.Connection(self._ssl_context, raw_socket)
+            ssl_connection.set_accept_state()
+            try:
+                ssl_connection.do_handshake()
+            except SSL.Error as exc:
+                print(f"TLS handshake failed from {client_address}: {exc}")
+                try:
+                    ssl_connection.shutdown()
+                except Exception:
+                    pass
+                try:
+                    raw_socket.close()
+                except Exception:
+                    pass
+                continue
+            return SSLConnectionProxy(ssl_connection), client_address
 
 
 def generate_self_signed_certificate(hostname: str = "localhost", days: int = 365):

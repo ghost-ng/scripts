@@ -18,6 +18,7 @@ import os
 import posixpath
 import re
 import shutil
+import socket
 import sys
 import urllib.error
 import urllib.parse
@@ -40,6 +41,163 @@ from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 __version__ = "2.1"
 __all__ = ["SimpleHTTPRequestHandler", "main"]
 __author__ = "bones7456, midnightseer, ghost-ng"
+
+
+class SSLConnectionProxy:
+    """Bridge pyOpenSSL Connection to socketserver BaseHTTPRequestHandler expectations."""
+
+    def __init__(self, connection):
+        self._connection = connection
+
+    def __getattr__(self, name):
+        return getattr(self._connection, name)
+
+    def fileno(self):
+        return self._connection.fileno()
+
+    def recv(self, buflen=1024, flags=0):
+        return self._connection.recv(buflen)
+
+    def send(self, data, flags=0):
+        return self._connection.send(data)
+
+    def shutdown(self, how=socket.SHUT_RDWR):
+        try:
+            self._connection.shutdown()
+        except Exception:
+            pass
+        return None
+
+    def close(self):
+        try:
+            self._connection.shutdown()
+        except Exception:
+            pass
+        try:
+            self._connection.close()
+        except Exception:
+            pass
+
+    def makefile(self, mode='r', buffering=None, *args, **kwargs):
+        if 'r' in mode:
+            return SSLFileReader(self._connection)
+        if 'w' in mode:
+            return SSLFileWriter(self._connection)
+        raise NotImplementedError(f"Unsupported makefile mode: {mode}")
+
+
+class SSLFileReader:
+    def __init__(self, connection):
+        self._connection = connection
+        self._buffer = b""
+
+    def readable(self):
+        return True
+
+    def read(self, size=-1):
+        if size is None or size < 0:
+            chunks = []
+            while True:
+                data = self._connection.recv(65536)
+                if not data:
+                    break
+                chunks.append(data)
+            return b"".join(chunks)
+
+        if not self._buffer:
+            data = self._connection.recv(size)
+            return data
+
+        if len(self._buffer) <= size:
+            out = self._buffer
+            self._buffer = b""
+            return out
+
+        out = self._buffer[:size]
+        self._buffer = self._buffer[size:]
+        return out
+
+    def readline(self, size=-1):
+        while b"\n" not in self._buffer:
+            chunk = self._connection.recv(4096)
+            if not chunk:
+                break
+            self._buffer += chunk
+            if size >= 0 and len(self._buffer) > size:
+                break
+
+        if size >= 0 and len(self._buffer) > size:
+            out = self._buffer[:size]
+            self._buffer = self._buffer[size:]
+            return out
+
+        if b"\n" in self._buffer:
+            idx = self._buffer.index(b"\n") + 1
+            out = self._buffer[:idx]
+            self._buffer = self._buffer[idx:]
+            return out
+
+        out = self._buffer
+        self._buffer = b""
+        return out
+
+    def close(self):
+        try:
+            self._connection.shutdown()
+        except Exception:
+            pass
+
+    def flush(self):
+        pass
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        line = self.readline()
+        if not line:
+            raise StopIteration
+        return line
+
+
+class SSLFileWriter:
+    def __init__(self, connection):
+        self._connection = connection
+
+    def writable(self):
+        return True
+
+    def write(self, data):
+        view = memoryview(data)
+        total = 0
+        while total < len(view):
+            sent = self._connection.send(view[total:])
+            if sent <= 0:
+                raise OSError("SSL connection closed during write")
+            total += sent
+        return total
+
+    def flush(self):
+        pass
+
+    def close(self):
+        try:
+            self._connection.shutdown()
+        except Exception:
+            pass
+
+
+class MemorySSLHTTPServer(http.server.HTTPServer):
+    def __init__(self, server_address, RequestHandlerClass, ssl_context):
+        self._ssl_context = ssl_context
+        super().__init__(server_address, RequestHandlerClass)
+
+    def get_request(self):
+        raw_socket, client_address = self.socket.accept()
+        ssl_connection = SSL.Connection(self._ssl_context, raw_socket)
+        ssl_connection.set_accept_state()
+        ssl_connection.do_handshake()
+        return SSLConnectionProxy(ssl_connection), client_address
 
 
 def generate_self_signed_certificate(hostname: str = "localhost", days: int = 365):
@@ -110,7 +268,6 @@ def generate_self_signed_certificate(hostname: str = "localhost", days: int = 36
 def create_ssl_context(hostname: str = "localhost", days: int = 365):
     """Build an OpenSSL context using certs that exist only in memory."""
     key_pem, cert_pem = generate_self_signed_certificate(hostname=hostname, days=days)
-
     ctx = SSL.Context(SSL.TLS_METHOD)
     ctx.set_options(SSL.OP_NO_SSLv2 | SSL.OP_NO_SSLv3 | SSL.OP_NO_COMPRESSION)
     ctx.use_privatekey(crypto.load_privatekey(crypto.FILETYPE_PEM, key_pem))
@@ -327,9 +484,7 @@ def run_server(host: str, port: int, use_ssl: bool = True, hostname: str = "loca
 
     if use_ssl:
         context = create_ssl_context(hostname=hostname, days=cert_days)
-        httpd = http.server.HTTPServer((host, port), SimpleHTTPRequestHandler)
-        httpd.socket = SSL.Connection(context, httpd.socket)
-        httpd.socket.set_accept_state()
+        httpd = MemorySSLHTTPServer((host, port), SimpleHTTPRequestHandler, context)
         scheme = "https"
     else:
         httpd = http.server.HTTPServer((host, port), SimpleHTTPRequestHandler)

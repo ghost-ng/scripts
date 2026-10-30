@@ -316,16 +316,25 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
 
 def run_server(host: str, port: int, use_ssl: bool = True, hostname: str = "localhost", cert_days: int = 365):
-    handler = SimpleHTTPRequestHandler
     if use_ssl:
         context = create_ssl_context(hostname=hostname, days=cert_days)
-        httpd = http.server.HTTPServer((host, port), handler)
+        httpd = http.server.HTTPServer((host, port), SimpleHTTPRequestHandler)
         httpd.socket = SSL.Connection(context, httpd.socket)
         httpd.socket.set_accept_state()
-        print(f"Serving HTTPS on {host} port {port} (https://{hostname}:{port}/) ...")
+        scheme = "https"
     else:
-        httpd = http.server.HTTPServer((host, port), handler)
-        print(f"Serving HTTP on {host} port {port} (http://{host}:{port}/) ...")
+        httpd = http.server.HTTPServer((host, port), SimpleHTTPRequestHandler)
+        scheme = "http"
+
+    client_host = hostname if host in ("0.0.0.0", "::", "") else host
+    if host in ("0.0.0.0", "::", ""):
+        display_bind = host if host else "all"
+    else:
+        display_bind = host
+
+    print(f"Listening interface: {display_bind}")
+    print(f"Bound to: {host}:{port}")
+    print(f"Client URL: {scheme}://{client_host}:{port}/")
 
     try:
         httpd.serve_forever()

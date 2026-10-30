@@ -318,7 +318,11 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
 def run_server(host: str, port: int, use_ssl: bool = True, hostname: str = "localhost", cert_days: int = 365, root_dir: str = None):
     root_dir = os.path.abspath(root_dir or os.getcwd())
-    os.makedirs(root_dir, exist_ok=True)
+    if not os.path.exists(root_dir):
+        raise SystemExit(f"Error: working directory does not exist: {root_dir}")
+    if not os.path.isdir(root_dir):
+        raise SystemExit(f"Error: working directory is not a directory: {root_dir}")
+
     SimpleHTTPRequestHandler.root_dir = root_dir
 
     if use_ssl:

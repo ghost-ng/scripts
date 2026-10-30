@@ -1,224 +1,235 @@
 #!/usr/bin/env python3
- 
-"""Python Web Server with upload functionality and SSL.
 
-This module builds on BaseHTTPServer by implementing the standard GET
-and HEAD requests in a fairly straightforward manner.
+"""Python Web Server with upload capability and an in-memory self-signed HTTPS cert.
 
-For initial version, see: https://gist.github.com/UniIsland/3346170
-
-Updated by midnightseer to include the ssl wrapper and command line options
-
+This server serves files from the current directory and supports basic upload via
+multipart form POSTs. The HTTPS certificate is generated at runtime, stored only in
+memory, and never written to disk.
 """
- 
- 
-__version__ = "1.0"
-__all__ = ["PythonWebServer"]
-__author__ = "bones7456,midnightseer"
- 
-import os,sys
-import posixpath
-import http.server
-import urllib.request, urllib.parse, urllib.error
-import html
-import shutil
-import ssl
-import mimetypes
-import re
+
+from __future__ import annotations
+
 import argparse
+import html
+import http.server
+import ipaddress
+import mimetypes
+import os
+import posixpath
+import re
+import shutil
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
- 
+
+try:
+    from OpenSSL import SSL, crypto
+except ImportError as exc:  # pragma: no cover - dependency guard
+    raise SystemExit(
+        "This server requires pyOpenSSL. Install it with: python -m pip install pyOpenSSL"
+    ) from exc
+
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+
+__version__ = "2.0"
+__all__ = ["SimpleHTTPRequestHandler", "main"]
+__author__ = "bones7456, midnightseer, ghost-ng"
 
 
-#######key.pem goes here########
-key_pem = """-----BEGIN PRIVATE KEY-----
-MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDYe/JzvNhx/O4X
-f2RHsSrUsJyTo83in7V9Vk8jhYccCPUeHQPr8n2aqtwkxA/tdTTqf61ynBAx7Ti2
-OdN5eTyzocM3Dh0zck2SwWXRTzn6x/Ui+6+utbCWA4c3ueiSS7U+GXYL4hFNWUn1
-wjeFCqH6i4WhfEn3tGvBrLextFhOc7N7SGC62WlXLXUD4Afv7LOsJ7lK9fmBv60a
-d40Th5rsMDWGU+5QAlWhdcxNQ1fl6wYZ/McdoldLCYKZF0yqLfo2JPpBjgkqVhCt
-lMSy67IB+pKiCi9v2syei5GKziZvvrMw/kJOSnL0dfzzVLenqOWZslXjO9JDWBZd
-6ZG9iTxxAgMBAAECggEAEpZZ09wkDW11F+llN86badWcLAUFeW7TC2bstpURa7PN
-L/+3xXt1k2EWM8XtxCqrF3NM9ik2LsM6elLuuGBTeOzrsP9yPGeVB4O5dUZDKSgg
-ARfxFqQc/FRjOMKqmF0Nu74953lKmQSQmBxL3g1yqOtv1tSwGSeRlPh6cTSV3G5k
-LRg/IhadwPsA2HwGiR6QU5TSCf9Gndw1GiAkjIzighR9DhTXgscP3grB08ex7K6e
-KCebe9yJezBax8ibrrvIHACjcQ43dPGI92g/5oRRdWkOiHqcAtSPwv3TwKheG8pE
-BrV+D2BGSUPntQS5t4b0EhNTlOOwLjGoDASIJjstjQKBgQD/J0DmiDjEUFMMxHuh
-TVB3CUQ+P0IjCg+83uG6VexTHy4Ti7hzG7co8Do6JIj288qyfCFt16YhTf2o3vFZ
-SHSS84KEJQNtIf0I2WUamHxZU48HIGhHg9kT4uDyAy/PTpS3+HFInfaTNp09pNTI
-lmKkQpHytxEZoZ83GoNfpHy1rwKBgQDZM9hVjyFPvfs3i70R03ejfmUc7MwPAvSL
-5rneuEOQRp3PbNmODnYXqz6UXSjx4CGP9Ajzetlv6n3oXsbYV5ptr1VfbGaN4Fus
-Yvwmc5hWpXrJz2B2QWuPt4uPz9vn132cAEucEPGTJihpAZf3m+mZsLAfGi8hjGR3
-0pdG8f/X3wKBgQD7zxuH6AxOAg/UW9y/FfRBZg3JeNimh/l8JmKTaNTwO6dXdt60
-Czg52Ms+MmxRe8whVcwQAXFdEQEztcJuoMkbdeLq0zSMcaytHQ9grfial5JiMCN5
-4K9NpuzlKyv15dFztmbmia6dHpsUCSZOR8xV27T52p2vtAfTdAEPVOAW1QKBgQCD
-wludq3H9ubXHgFF1mt6co3QbE9rF0Hkg1Roz7Xuu7eeViOaAsm0Y9pzDy6+m6tvx
-Q4yahw+YQJuYdsYRPzNDDnWvqUadElkKPhHQEZd8GG5gNhjCI/Vn/WQAHYu9HI/q
-LpOvXOfu59rjuD/DySTwQqrUc0HcDBp2RZ3XP75/6QKBgDY+G8Kg+hcpKScf2SKE
-DwChKqTDBIUU6hKMbIomIHBI4tXZGuYWESe7MgypYvftOZJxlAnUzNV1Wd1baX6D
-oj4850PjKhaO0TfoIVda0oLOtKQdIQX+pkFmVeJxmwTdcIqA6MvYk+WSOTbaERET
-FuHTvZElIItUHjMP9TI6rC44
------END PRIVATE KEY-----"""
+def generate_self_signed_certificate(hostname: str = "localhost", days: int = 365):
+    """Create a self-signed TLS certificate and private key entirely in memory."""
+    hostname = (hostname or "localhost").strip() or "localhost"
 
-#######crt.pem goes here########
-crt_pem = """-----BEGIN CERTIFICATE-----
-MIIDazCCAlOgAwIBAgIUUoyr/cijbfsMFutoIiaBs5xS0T8wDQYJKoZIhvcNAQEL
-BQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoM
-GEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yMDA3MTExNTExMTZaFw0zMDA3
-MDkxNTExMTZaMEUxCzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEw
-HwYDVQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQwggEiMA0GCSqGSIb3DQEB
-AQUAA4IBDwAwggEKAoIBAQDYe/JzvNhx/O4Xf2RHsSrUsJyTo83in7V9Vk8jhYcc
-CPUeHQPr8n2aqtwkxA/tdTTqf61ynBAx7Ti2OdN5eTyzocM3Dh0zck2SwWXRTzn6
-x/Ui+6+utbCWA4c3ueiSS7U+GXYL4hFNWUn1wjeFCqH6i4WhfEn3tGvBrLextFhO
-c7N7SGC62WlXLXUD4Afv7LOsJ7lK9fmBv60ad40Th5rsMDWGU+5QAlWhdcxNQ1fl
-6wYZ/McdoldLCYKZF0yqLfo2JPpBjgkqVhCtlMSy67IB+pKiCi9v2syei5GKziZv
-vrMw/kJOSnL0dfzzVLenqOWZslXjO9JDWBZd6ZG9iTxxAgMBAAGjUzBRMB0GA1Ud
-DgQWBBQefIi+94KRWSiWDFnCUB3EAB3tiDAfBgNVHSMEGDAWgBQefIi+94KRWSiW
-DFnCUB3EAB3tiDAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQCb
-Hn0yRnveHwzFxxRm8Qgra0uAYxs3z6UsK7EXcrnf6pf26eKPM7KV/iI8siEaXFW4
-U1ulZ+pxKj6n6g0wFVZOamw5G5EPLkXXibixAdXCTWKOqBK5eNBPIZcsQe1ozDPk
-KA1aoIOOFaec6BBaARiNxNEPebtPlFwIxAO4J3rAOYiE7hN3pBfjXlshxsTTYAnx
-noTEKQfzLTGWZvRteIzuZGxfwjQvZOmRcTGwosXNzqRs4FWHKrOYhVAkZ9ijjtLR
-hqETLhg4SEs82bXzqiSOTAd0R3zLZA54gPb9X0vwZQxnqR1XyQoHuzj8KsQnPeVK
-fEOq7niByo0GsG8cvhHz
------END CERTIFICATE-----"""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    now = datetime.now(timezone.utc)
+
+    names = []
+    if hostname:
+        names.append(hostname)
+    names.extend(["localhost", "127.0.0.1", "::1"])
+
+    subject = issuer = x509.Name([
+        x509.NameAttribute(NameOID.COMMON_NAME, hostname),
+    ])
+
+    san_entries = []
+    for value in names:
+        try:
+            ip = ipaddress.ip_address(value)
+        except ValueError:
+            san_entries.append(x509.DNSName(value))
+        else:
+            san_entries.append(x509.IPAddress(ip))
+
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=5))
+        .not_valid_after(now + timedelta(days=days))
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .add_extension(
+            x509.KeyUsage(
+                digital_signature=True,
+                content_commitment=False,
+                key_encipherment=True,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=False,
+                crl_sign=False,
+                encipher_only=False,
+                decipher_only=False,
+            ),
+            critical=True,
+        )
+        .add_extension(
+            x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]),
+            critical=False,
+        )
+        .add_extension(x509.SubjectAlternativeName(san_entries), critical=False)
+        .sign(key, hashes.SHA256())
+    )
+
+    key_pem = key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    cert_pem = cert.public_bytes(serialization.Encoding.PEM)
+    return key_pem, cert_pem
+
+
+def create_ssl_context(hostname: str = "localhost", days: int = 365):
+    """Build an OpenSSL context using certs that exist only in memory."""
+    key_pem, cert_pem = generate_self_signed_certificate(hostname=hostname, days=days)
+
+    ctx = SSL.Context(SSL.TLS_METHOD)
+    ctx.set_options(SSL.OP_NO_SSLv2 | SSL.OP_NO_SSLv3 | SSL.OP_NO_COMPRESSION)
+    ctx.use_privatekey(crypto.load_privatekey(crypto.FILETYPE_PEM, key_pem))
+    ctx.use_certificate(crypto.load_certificate(crypto.FILETYPE_PEM, cert_pem))
+    return ctx
 
 
 class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
- 
-    """Simple HTTP request handler with GET/HEAD/POST commands.
+    """Simple HTTP request handler with GET/HEAD/POST commands."""
 
-    This serves files from the current directory and any of its
-    subdirectories.  The MIME type for files is determined by
-    calling the .guess_type() method. And can reveive file uploaded
-    by client.
-
-    The GET/HEAD/POST requests are identical except that the HEAD
-    request omits the actual contents of the file.
-
-    """
- 
     server_version = "SimpleHTTPWithUpload/" + __version__
- 
+
     def do_GET(self):
-        """Serve a GET request."""
         f = self.send_head()
         if f:
             self.copyfile(f, self.wfile)
             f.close()
- 
+
     def do_HEAD(self):
-        """Serve a HEAD request."""
         f = self.send_head()
         if f:
             f.close()
- 
+
     def do_POST(self):
-        """Serve a POST request."""
         self.request.settimeout(10000)
-        r, info = self.deal_post_data()
+        result, info = self.deal_post_data()
         print("[+] File Uploaded! {} --> {}".format(info, self.client_address))
-        f = BytesIO()
-        f.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
-        f.write(b"<html>\n<title>Upload Result Page</title>\n")
-        f.write(b"<body>\n<h2>Upload Result Page</h2>\n")
-        f.write(b"<hr>\n")
-        if r:
-            f.write(b"<strong>Success:</strong>")
-        else:
-            f.write(b"<strong>Failed:</strong>")
-        f.write(info.encode())
-        f.write(("<br><a href=\"%s\">back</a>" % self.headers['referer']).encode())
-        f.write(b"</body>\n</html>\n")
-        length = f.tell()
-        f.seek(0)
+        body = BytesIO()
+        body.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
+        body.write(b"<html>\n<title>Upload Result Page</title>\n")
+        body.write(b"<body>\n<h2>Upload Result Page</h2>\n")
+        body.write(b"<hr>\n")
+        body.write(b"<strong>Success:</strong>" if result else b"<strong>Failed:</strong>")
+        body.write(info.encode("utf-8", "replace"))
+        referer = self.headers.get("Referer", "/")
+        body.write(("<br><a href=\"%s\">back</a>" % referer).encode("utf-8", "replace"))
+        body.write(b"</body>\n</html>\n")
+        length = body.tell()
+        body.seek(0)
         self.send_response(200)
         self.send_header("Content-type", "text/html")
         self.send_header("Content-Length", str(length))
         self.end_headers()
-        if f:
-            self.copyfile(f, self.wfile)
-            f.close()
-        
+        if body:
+            self.copyfile(body, self.wfile)
+            body.close()
+
     def deal_post_data(self):
-        content_type = self.headers['content-type']
-        if not content_type:
-            return (False, "Content-Type header doesn't contain boundary")
-        boundary = content_type.split("=")[1].encode()
-        remainbytes = int(self.headers['content-length'])
+        content_type = self.headers.get("Content-Type", "")
+        if not content_type or "boundary=" not in content_type:
+            return False, "Content-Type header doesn't contain boundary"
+
+        boundary = ("--" + content_type.split("boundary=")[1].strip()).encode("utf-8")
+        remaining = int(self.headers.get("Content-Length", "0"))
+
         line = self.rfile.readline()
-        remainbytes -= len(line)
+        remaining -= len(line)
         if not boundary in line:
-            return (False, "Content NOT begin with boundary")
+            return False, "Content NOT begin with boundary"
+
         line = self.rfile.readline()
-        remainbytes -= len(line)
-        fn = re.findall(r'Content-Disposition.*name="fil.*"; filename="(.*)"', line.decode())
-        if not fn:
-            return (False, "Unable to locate file for upload...")
+        remaining -= len(line)
+        fn_match = re.findall(r'Content-Disposition.*name="fil.*"; filename="(.*)"', line.decode("utf-8", "replace"))
+        if not fn_match:
+            return False, "Unable to locate file for upload..."
+
         path = self.translate_path(self.path)
-        fn = os.path.join(path, fn[0])
+        filename = os.path.join(path, fn_match[0])
+
         line = self.rfile.readline()
-        remainbytes -= len(line)
+        remaining -= len(line)
         line = self.rfile.readline()
-        remainbytes -= len(line)
+        remaining -= len(line)
+
         try:
-            out = open(fn, 'wb')
-        except IOError:
-            return (False, "Can't create file to write, do you have permission to write?")
-                
+            out = open(filename, "wb")
+        except OSError:
+            return False, "Can't create file to write, do you have permission to write?"
+
         preline = self.rfile.readline()
-        remainbytes -= len(preline)
-        while remainbytes > 0:
+        remaining -= len(preline)
+        while remaining > 0:
             line = self.rfile.readline()
-            remainbytes -= len(line)
+            remaining -= len(line)
             if boundary in line:
-                preline = preline[0:-1]
-                if preline.endswith(b'\r'):
-                    preline = preline[0:-1]
+                preline = preline.rstrip(b"\r\n")
                 out.write(preline)
                 out.close()
-                return (True, "File '%s' upload success!" % fn)
-            else:
-                out.write(preline)
-                preline = line
-        return (False, "Unexpect end of data.")
- 
+                return True, "File '%s' upload success!" % filename
+            out.write(preline)
+            preline = line
+
+        out.close()
+        return False, "Unexpected end of data."
+
     def send_head(self):
-        """Common code for GET and HEAD commands.
-
-        This sends the response code and MIME headers.
-
-        Return value is either a file object (which has to be copied
-        to the outputfile by the caller unless the command was HEAD,
-        and must be closed by the caller under all circumstances), or
-        None, in which case the caller has nothing further to do.
-
-        """
         path = self.translate_path(self.path)
-        f = None
         if os.path.isdir(path):
-            if not self.path.endswith('/'):
-                # redirect browser - doing basically what apache does
+            if not self.path.endswith("/"):
                 self.send_response(301)
                 self.send_header("Location", self.path + "/")
                 self.end_headers()
                 return None
-            for index in "index.html", "index.htm":
-                index = os.path.join(path, index)
-                if os.path.exists(index):
-                    path = index
+
+            for index in ("index.html", "index.htm"):
+                index_path = os.path.join(path, index)
+                if os.path.exists(index_path):
+                    path = index_path
                     break
             else:
                 return self.list_directory(path)
+
         ctype = self.guess_type(path)
         try:
-            # Always read in binary mode. Opening files in text mode may cause
-            # newline translations, making the actual size of the content
-            # transmitted *less* than the content-length!
-            f = open(path, 'rb')
-        except IOError:
+            f = open(path, "rb")
+        except OSError:
             self.send_error(404, "File not found")
             return None
+
         self.send_response(200)
         self.send_header("Content-type", ctype)
         fs = os.fstat(f.fileno())
@@ -226,178 +237,124 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
         self.end_headers()
         return f
- 
+
     def list_directory(self, path):
-        """Helper to produce a directory listing (absent index.html).
-
-        Return value is either a file object, or None (indicating an
-        error).  In either case, the headers are sent, making the
-        interface the same as for send_head().
-
-        """
         try:
-            list = os.listdir(path)
+            listing = os.listdir(path)
         except os.error:
             self.send_error(404, "No permission to list directory")
             return None
-        list.sort(key=lambda a: a.lower())
-        f = BytesIO()
+
+        listing.sort(key=lambda a: a.lower())
+        body = BytesIO()
         displaypath = html.escape(urllib.parse.unquote(self.path))
-        f.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
-        f.write(("<html>\n<title>Directory listing for %s</title>\n" % displaypath).encode())
-        f.write(("<body>\n<h2>Directory listing for %s</h2>\n" % displaypath).encode())
-        f.write(b"<hr>\n")
-        f.write(b"<form ENCTYPE=\"multipart/form-data\" method=\"post\">")
-        f.write(b"<input name=\"file\" type=\"file\"/>")
-        f.write(b"<input type=\"submit\" value=\"upload\"/></form>\n")
-        f.write(b"<hr>\n<ul>\n")
-        for name in list:
-            fullname = os.path.join(path, name)
-            displayname = linkname = name
-            # Append / for directories or @ for symbolic links
-            if os.path.isdir(fullname):
-                displayname = name + "/"
-                linkname = name + "/"
-            if os.path.islink(fullname):
-                displayname = name + "@"
-                # Note: a link to a directory displays with @ and links with /
-            f.write(('<li><a href="%s">%s</a>\n'
-                    % (urllib.parse.quote(linkname), html.escape(displayname))).encode())
-        f.write(b"</ul>\n<hr>\n</body>\n</html>\n")
-        length = f.tell()
-        f.seek(0)
+        body.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
+        body.write(("<html>\n<title>Directory listing for %s</title>\n" % displaypath).encode())
+        body.write(("<body>\n<h2>Directory listing for %s</h2>\n" % displaypath).encode())
+        body.write(b"<hr>\n")
+        body.write(b'<form ENCTYPE="multipart/form-data" method="post">')
+        body.write(b'<input name="file" type="file"/>')
+        body.write(b'<input type="submit" value="upload"/></form>\n')
+        body.write(b"<hr>\n<ul>\n")
+
+        for name in listing:
+            full_name = os.path.join(path, name)
+            display_name = link_name = name
+            if os.path.isdir(full_name):
+                display_name = name + "/"
+                link_name = name + "/"
+            if os.path.islink(full_name):
+                display_name = name + "@"
+            body.write(
+                ('<li><a href="%s">%s</a>\n' % (urllib.parse.quote(link_name), html.escape(display_name))).encode()
+            )
+
+        body.write(b"</ul>\n<hr>\n</body>\n</html>\n")
+        length = body.tell()
+        body.seek(0)
         self.send_response(200)
         self.send_header("Content-type", "text/html")
         self.send_header("Content-Length", str(length))
         self.end_headers()
-        return f
- 
+        return body
+
     def translate_path(self, path):
-        """Translate a /-separated PATH to the local filename syntax.
-
-        Components that mean special things to the local file system
-        (e.g. drive or directory names) are ignored.  (XXX They should
-        probably be diagnosed.)
-
-        """
-        # abandon query parameters
-        path = path.split('?',1)[0]
-        path = path.split('#',1)[0]
+        path = path.split("?", 1)[0]
+        path = path.split("#", 1)[0]
         path = posixpath.normpath(urllib.parse.unquote(path))
-        words = path.split('/')
-        words = [_f for _f in words if _f]
-        path = os.getcwd()
+        words = [word for word in path.split("/") if word not in ("", ".", "..")]
+        base = os.getcwd()
         for word in words:
             drive, word = os.path.splitdrive(word)
             head, word = os.path.split(word)
-            if word in (os.curdir, os.pardir): continue
-            path = os.path.join(path, word)
-        return path
- 
+            if word in (os.curdir, os.pardir):
+                continue
+            base = os.path.join(base, word)
+        return base
+
     def copyfile(self, source, outputfile):
-        """Copy all data between two file objects.
-
-        The SOURCE argument is a file object open for reading
-        (or anything with a read() method) and the DESTINATION
-        argument is a file object open for writing (or
-        anything with a write() method).
-
-        The only reason for overriding this would be to change
-        the block size or perhaps to replace newlines by CRLF
-        -- note however that this the default server uses this
-        to copy binary data as well.
-
-        """
         shutil.copyfileobj(source, outputfile)
- 
+
     def guess_type(self, path):
-        """Guess the type of a file.
-
-        Argument is a PATH (a filename).
-
-        Return value is a string of the form type/subtype,
-        usable for a MIME Content-type header.
-
-        The default implementation looks the file's extension
-        up in the table self.extensions_map, using application/octet-stream
-        as a default; however it would be permissible (if
-        slow) to look inside the data to make a better guess.
-
-        """
- 
         base, ext = posixpath.splitext(path)
         if ext in self.extensions_map:
             return self.extensions_map[ext]
         ext = ext.lower()
         if ext in self.extensions_map:
             return self.extensions_map[ext]
-        else:
-            return self.extensions_map['']
- 
+        return self.extensions_map[""]
+
     if not mimetypes.inited:
-        mimetypes.init() # try to read system mime.types
+        mimetypes.init()
     extensions_map = mimetypes.types_map.copy()
     extensions_map.update({
-        '': 'application/octet-stream', # Default
-        '.py': 'text/plain',
-        '.c': 'text/plain',
-        '.h': 'text/plain',
-        })
+        "": "application/octet-stream",
+        ".py": "text/plain",
+        ".c": "text/plain",
+        ".h": "text/plain",
+    })
 
-def ssl_prep():
 
-    try:
-        with open("key.pem",'w') as file:
-            file.write(key_pem)
-    except:
-        print("Unable to create key.pem")
-        print(sys.exc_info())
-
-    try:
-        with open("crt.pem",'w') as file:
-            file.write(crt_pem)
-    except:
-        print("Unable to create crt.pem")
-        print(sys.exc_info())
-
-def ssl_cleanup():
-    try:
-        os.remove("key.pem")
-    except FileNotFoundError:
-        print("Unable to Delete key.pem")
-    try:
-        os.remove("crt.pem")
-    except FileNotFoundError:
-        print("Unable to Delete crt.pem")
-
-def test(PORT, HandlerClass = SimpleHTTPRequestHandler, ServerClass = http.server.HTTPServer):
-
-    http.server.test(HandlerClass, ServerClass,port=PORT)
- 
-if __name__ == '__main__':
-    p = argparse.ArgumentParser(description='A Better Python3 HTTP Server')
-    p.add_argument('-p', '--port', type=int, default=8000, dest="port", action="store", help="the port for the http service to listen on")
-    p.add_argument('-l', '--listen', type=str, default="0.0.0.0", dest="listen", action="store", help="the interface to bind to")
-    p.add_argument('-n', '--no-ssl', action="store_true", default=False, dest="nossl", help="do not serve https / ssl")
-    args = p.parse_args()
+def run_server(host: str, port: int, use_ssl: bool = True, hostname: str = "localhost", cert_days: int = 365):
+    handler = SimpleHTTPRequestHandler
+    if use_ssl:
+        context = create_ssl_context(hostname=hostname, days=cert_days)
+        httpd = http.server.HTTPServer((host, port), handler)
+        httpd.socket = SSL.Connection(context, httpd.socket)
+        httpd.socket.set_accept_state()
+        print(f"Serving HTTPS on {host} port {port} (https://{hostname}:{port}/) ...")
+    else:
+        httpd = http.server.HTTPServer((host, port), handler)
+        print(f"Serving HTTP on {host} port {port} (http://{host}:{port}/) ...")
 
     try:
-        if args.nossl:
-            test(args.port, SimpleHTTPRequestHandler, http.server.HTTPServer)
-        else:
-            ssl_prep()
-            httpd = http.server.HTTPServer((args.listen, args.port), SimpleHTTPRequestHandler)
-            httpd.socket = ssl.wrap_socket (httpd.socket, keyfile='key.pem', certfile='crt.pem', server_side=True)
-            print("Serving HTTPS on {l} port {p} (https://{l}:{p}/) ...".format(l=args.listen, p=args.port))
-            httpd.serve_forever()
-
+        httpd.serve_forever()
     except KeyboardInterrupt:
         print("^punch!")
     finally:
         try:
-            if args.nossl:
-                pass
-            else:
-                ssl_cleanup()
-        except:
+            httpd.server_close()
+        except Exception:
             pass
+
+
+def main():
+    parser = argparse.ArgumentParser(description="A standalone Python3 HTTP(S) server with upload support")
+    parser.add_argument("-p", "--port", type=int, default=8000, dest="port", help="Port for the HTTP service")
+    parser.add_argument("-l", "--listen", type=str, default="0.0.0.0", dest="listen", help="Interface to bind to")
+    parser.add_argument("-n", "--no-ssl", action="store_true", default=False, dest="nossl", help="Serve plain HTTP instead of HTTPS")
+    parser.add_argument("--hostname", type=str, default="localhost", help="Hostname used in the self-signed certificate")
+    parser.add_argument("--cert-days", type=int, default=365, help="How long the self-signed cert stays valid")
+    args = parser.parse_args()
+
+    run_server(
+        host=args.listen,
+        port=args.port,
+        use_ssl=not args.nossl,
+        hostname=args.hostname,
+        cert_days=args.cert_days,
+    )
+
+
+if __name__ == "__main__":
+    main()

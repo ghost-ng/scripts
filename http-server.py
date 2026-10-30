@@ -2,9 +2,9 @@
 
 """Python Web Server with upload capability and an in-memory self-signed HTTPS cert.
 
-This server serves files from the current directory and supports basic upload via
-multipart form POSTs. The HTTPS certificate is generated at runtime, stored only in
-memory, and never written to disk.
+This server serves files from a configurable working directory and supports basic
+upload via multipart form POSTs. The HTTPS certificate is generated at runtime,
+stored only in memory, and never written to disk.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
-__version__ = "2.0"
+__version__ = "2.1"
 __all__ = ["SimpleHTTPRequestHandler", "main"]
 __author__ = "bones7456, midnightseer, ghost-ng"
 
@@ -122,6 +122,7 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
     """Simple HTTP request handler with GET/HEAD/POST commands."""
 
     server_version = "SimpleHTTPWithUpload/" + __version__
+    root_dir = os.getcwd()
 
     def do_GET(self):
         f = self.send_head()
@@ -283,7 +284,7 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         path = path.split("#", 1)[0]
         path = posixpath.normpath(urllib.parse.unquote(path))
         words = [word for word in path.split("/") if word not in ("", ".", "..")]
-        base = os.getcwd()
+        base = self.root_dir
         for word in words:
             drive, word = os.path.splitdrive(word)
             head, word = os.path.split(word)
@@ -315,7 +316,11 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
     })
 
 
-def run_server(host: str, port: int, use_ssl: bool = True, hostname: str = "localhost", cert_days: int = 365):
+def run_server(host: str, port: int, use_ssl: bool = True, hostname: str = "localhost", cert_days: int = 365, root_dir: str = None):
+    root_dir = os.path.abspath(root_dir or os.getcwd())
+    os.makedirs(root_dir, exist_ok=True)
+    SimpleHTTPRequestHandler.root_dir = root_dir
+
     if use_ssl:
         context = create_ssl_context(hostname=hostname, days=cert_days)
         httpd = http.server.HTTPServer((host, port), SimpleHTTPRequestHandler)
@@ -334,6 +339,7 @@ def run_server(host: str, port: int, use_ssl: bool = True, hostname: str = "loca
 
     print(f"Listening interface: {display_bind}")
     print(f"Bound to: {host}:{port}")
+    print(f"Working directory: {root_dir}")
     print(f"Client URL: {scheme}://{client_host}:{port}/")
 
     try:
@@ -352,6 +358,7 @@ def main():
     parser.add_argument("-p", "--port", type=int, default=8000, dest="port", help="Port for the HTTP service")
     parser.add_argument("-l", "--listen", type=str, default="0.0.0.0", dest="listen", help="Interface to bind to")
     parser.add_argument("-n", "--no-ssl", action="store_true", default=False, dest="nossl", help="Serve plain HTTP instead of HTTPS")
+    parser.add_argument("-d", "--directory", "--workdir", dest="directory", default=None, help="Directory to serve instead of the current working directory")
     parser.add_argument("--hostname", type=str, default="localhost", help="Hostname used in the self-signed certificate")
     parser.add_argument("--cert-days", type=int, default=365, help="How long the self-signed cert stays valid")
     args = parser.parse_args()
@@ -362,6 +369,7 @@ def main():
         use_ssl=not args.nossl,
         hostname=args.hostname,
         cert_days=args.cert_days,
+        root_dir=args.directory,
     )
 
 

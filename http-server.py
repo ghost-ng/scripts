@@ -20,6 +20,7 @@ import re
 import shutil
 import socket
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -48,6 +49,10 @@ class SSLConnectionProxy:
 
     def __init__(self, connection):
         self._connection = connection
+        try:
+            self._connection.setblocking(True)
+        except Exception:
+            pass
 
     def __getattr__(self, name):
         return getattr(self._connection, name)
@@ -56,10 +61,30 @@ class SSLConnectionProxy:
         return self._connection.fileno()
 
     def recv(self, buflen=1024, flags=0):
-        return self._connection.recv(buflen)
+        while True:
+            try:
+                return self._connection.recv(buflen)
+            except SSL.WantReadError:
+                time.sleep(0.01)
+            except SSL.WantWriteError:
+                time.sleep(0.01)
 
     def send(self, data, flags=0):
-        return self._connection.send(data)
+        view = memoryview(data)
+        total = 0
+        while total < len(view):
+            try:
+                sent = self._connection.send(view[total:])
+            except SSL.WantReadError:
+                time.sleep(0.01)
+                continue
+            except SSL.WantWriteError:
+                time.sleep(0.01)
+                continue
+            if sent <= 0:
+                raise OSError("SSL connection closed during write")
+            total += sent
+        return total
 
     def shutdown(self, how=socket.SHUT_RDWR):
         try:
@@ -85,11 +110,26 @@ class SSLConnectionProxy:
             return SSLFileWriter(self._connection)
         raise NotImplementedError(f"Unsupported makefile mode: {mode}")
 
+    def settimeout(self, timeout):
+        try:
+            self._connection.settimeout(timeout)
+        except Exception:
+            pass
+
 
 class SSLFileReader:
     def __init__(self, connection):
         self._connection = connection
         self._buffer = b""
+
+    def _recv(self, size):
+        while True:
+            try:
+                return self._connection.recv(size)
+            except SSL.WantReadError:
+                time.sleep(0.01)
+            except SSL.WantWriteError:
+                time.sleep(0.01)
 
     def readable(self):
         return True
@@ -98,14 +138,14 @@ class SSLFileReader:
         if size is None or size < 0:
             chunks = []
             while True:
-                data = self._connection.recv(65536)
+                data = self._recv(65536)
                 if not data:
                     break
                 chunks.append(data)
             return b"".join(chunks)
 
         if not self._buffer:
-            data = self._connection.recv(size)
+            data = self._recv(size)
             return data
 
         if len(self._buffer) <= size:
@@ -119,7 +159,7 @@ class SSLFileReader:
 
     def readline(self, size=-1):
         while b"\n" not in self._buffer:
-            chunk = self._connection.recv(4096)
+            chunk = self._recv(4096)
             if not chunk:
                 break
             self._buffer += chunk
@@ -171,7 +211,14 @@ class SSLFileWriter:
         view = memoryview(data)
         total = 0
         while total < len(view):
-            sent = self._connection.send(view[total:])
+            try:
+                sent = self._connection.send(view[total:])
+            except SSL.WantReadError:
+                time.sleep(0.01)
+                continue
+            except SSL.WantWriteError:
+                time.sleep(0.01)
+                continue
             if sent <= 0:
                 raise OSError("SSL connection closed during write")
             total += sent
@@ -195,7 +242,15 @@ class MemorySSLHTTPServer(http.server.HTTPServer):
     def get_request(self):
         while True:
             raw_socket, client_address = self.socket.accept()
+            try:
+                raw_socket.setblocking(True)
+            except Exception:
+                pass
             ssl_connection = SSL.Connection(self._ssl_context, raw_socket)
+            try:
+                ssl_connection.setblocking(True)
+            except Exception:
+                pass
             ssl_connection.set_accept_state()
             try:
                 ssl_connection.do_handshake()

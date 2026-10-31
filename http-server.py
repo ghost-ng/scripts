@@ -19,7 +19,6 @@ import posixpath
 import re
 import shutil
 import socket
-import sys
 import time
 import urllib.error
 import urllib.parse
@@ -29,7 +28,7 @@ from io import BytesIO
 
 try:
     from OpenSSL import SSL, crypto
-except ImportError as exc:  # pragma: no cover - dependency guard
+except ImportError as exc:  # pragma: no cover
     raise SystemExit(
         "This server requires pyOpenSSL. Install it with: python -m pip install pyOpenSSL"
     ) from exc
@@ -39,13 +38,13 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
-__version__ = "2.1"
+__version__ = "2.2"
 __all__ = ["SimpleHTTPRequestHandler", "main"]
 __author__ = "bones7456, midnightseer, ghost-ng"
 
 
 class SSLConnectionProxy:
-    """Bridge pyOpenSSL Connection to socketserver BaseHTTPRequestHandler expectations."""
+    """Bridge pyOpenSSL.Connection to the socketserver API."""
 
     def __init__(self, connection):
         self._connection = connection
@@ -103,10 +102,10 @@ class SSLConnectionProxy:
         except Exception:
             pass
 
-    def makefile(self, mode='r', buffering=None, *args, **kwargs):
-        if 'r' in mode:
+    def makefile(self, mode="r", buffering=None, *args, **kwargs):
+        if "r" in mode:
             return SSLFileReader(self._connection)
-        if 'w' in mode:
+        if "w" in mode:
             return SSLFileWriter(self._connection)
         raise NotImplementedError(f"Unsupported makefile mode: {mode}")
 
@@ -246,12 +245,14 @@ class MemorySSLHTTPServer(http.server.HTTPServer):
                 raw_socket.setblocking(True)
             except Exception:
                 pass
+
             ssl_connection = SSL.Connection(self._ssl_context, raw_socket)
             try:
                 ssl_connection.setblocking(True)
             except Exception:
                 pass
             ssl_connection.set_accept_state()
+
             try:
                 ssl_connection.do_handshake()
             except SSL.Error as exc:
@@ -265,6 +266,7 @@ class MemorySSLHTTPServer(http.server.HTTPServer):
                 except Exception:
                     pass
                 continue
+
             return SSLConnectionProxy(ssl_connection), client_address
 
 
